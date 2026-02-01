@@ -27,3 +27,15 @@ __all__ = [
     "create_image_selector",
     "load_from_url",
 ]
+
+
+def run_app():
+    """GUIアプリケーションを起動。
+
+    Example:
+        >>> from shadowbox.gui import run_app
+        >>> run_app()
+    """
+    from shadowbox.gui.app import main
+
+    main()
