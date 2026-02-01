@@ -1,0 +1,305 @@
+"""3Dメッシュ生成モジュール。
+
+このモジュールは、クラスタリングされた深度レイヤーから
+3Dメッシュデータを生成する機能を提供します。
+生成されたメッシュはVedoなどの3Dレンダラーで表示できます。
+"""
+
+from dataclasses import dataclass
+from typing import List, Optional
+
+import numpy as np
+from numpy.typing import NDArray
+
+from shadowbox.config.settings import RenderSettings
+
+
+@dataclass
+class LayerMesh:
+    """単一レイヤーの3Dメッシュデータ。
+
+    Attributes:
+        vertices: 頂点座標。shape (N, 3) で各行が(x, y, z)。
+        colors: 各頂点の色。shape (N, 3) でRGB値(0-255)。
+        z_position: レイヤーのZ座標位置。
+        layer_index: レイヤーインデックス（0が最前面）。
+        pixel_indices: 元画像でのピクセルインデックス。shape (N, 2)で(row, col)。
+
+    Note:
+        座標系は以下のように定義:
+        - X: 左(-1)から右(+1)
+        - Y: 下(-1)から上(+1)
+        - Z: 奥(-n)から手前(0)
+    """
+
+    vertices: NDArray[np.float32]
+    colors: NDArray[np.uint8]
+    z_position: float
+    layer_index: int
+    pixel_indices: NDArray[np.int32]
+
+
+@dataclass
+class FrameMesh:
+    """フレーム（枠）の3Dメッシュデータ。
+
+    シャドーボックスの枠部分を表現します。
+
+    Attributes:
+        vertices: 頂点座標。shape (8, 3)。
+        faces: 面のインデックス。shape (M, 3)。
+        color: フレームの色。RGB値(0-255)。
+        z_position: フレームのZ座標（最前面）。
+    """
+
+    vertices: NDArray[np.float32]
+    faces: NDArray[np.int32]
+    color: NDArray[np.uint8]
+    z_position: float
+
+
+@dataclass
+class ShadowboxMesh:
+    """シャドーボックス全体の3Dメッシュデータ。
+
+    全レイヤーとオプションのフレームを含みます。
+
+    Attributes:
+        layers: レイヤーメッシュのリスト。
+        frame: フレームメッシュ（Noneの場合はフレームなし）。
+        bounds: バウンディングボックス (min_x, max_x, min_y, max_y, min_z, max_z)。
+        num_layers: レイヤー数。
+
+    Example:
+        >>> mesh = generator.generate(image, labels, centroids)
+        >>> for layer in mesh.layers:
+        ...     print(f"Layer {layer.layer_index}: {len(layer.vertices)} vertices")
+    """
+
+    layers: List[LayerMesh]
+    frame: Optional[FrameMesh]
+    bounds: tuple
+
+    @property
+    def num_layers(self) -> int:
+        """レイヤー数を返す。"""
+        return len(self.layers)
+
+    @property
+    def total_vertices(self) -> int:
+        """全レイヤーの頂点数合計を返す。"""
+        return sum(len(layer.vertices) for layer in self.layers)
+
+
+class MeshGenerator:
+    """深度レイヤーから3Dメッシュを生成するジェネレーター。
+
+    クラスタリングされた深度マップと元画像から、
+    各レイヤーの3Dポイントクラウドデータを生成します。
+
+    Attributes:
+        settings: レンダリング設定。
+
+    Example:
+        >>> settings = RenderSettings()
+        >>> generator = MeshGenerator(settings)
+        >>> mesh = generator.generate(image, labels, centroids)
+    """
+
+    def __init__(self, settings: RenderSettings) -> None:
+        """ジェネレーターを初期化。
+
+        Args:
+            settings: レンダリング設定。
+        """
+        self._settings = settings
+
+    def generate(
+        self,
+        image: NDArray[np.uint8],
+        labels: NDArray[np.int32],
+        centroids: NDArray[np.float32],
+        include_frame: bool = True,
+    ) -> ShadowboxMesh:
+        """クラスタリング結果から完全なシャドーボックスメッシュを生成。
+
+        Args:
+            image: 元のRGB画像。shape (H, W, 3)。
+            labels: 各ピクセルのレイヤーインデックス。shape (H, W)。
+            centroids: ソート済みセントロイド。shape (k,)。
+            include_frame: フレームを含めるかどうか。
+
+        Returns:
+            ShadowboxMeshオブジェクト。
+        """
+        layers = []
+        num_layers = len(centroids)
+
+        for i in range(num_layers):
+            # Z位置: レイヤー0は-layer_thickness、レイヤーnは-(n+1)*layer_thickness
+            # フレームがz=0なので、イラストはその奥
+            z = -(i + 1) * (self._settings.layer_thickness + self._settings.layer_gap)
+
+            mask = labels == i
+            layer_mesh = self._create_layer_mesh(image, mask, z, i)
+            layers.append(layer_mesh)
+
+        # フレームの生成
+        frame = None
+        if include_frame:
+            frame = self._create_frame_mesh(image.shape[:2])
+
+        # バウンディングボックスの計算
+        bounds = self._calculate_bounds(layers, frame)
+
+        return ShadowboxMesh(
+            layers=layers,
+            frame=frame,
+            bounds=bounds,
+        )
+
+    def _create_layer_mesh(
+        self,
+        image: NDArray[np.uint8],
+        mask: NDArray[np.bool_],
+        z: float,
+        layer_index: int,
+    ) -> LayerMesh:
+        """単一レイヤーのメッシュを作成。
+
+        マスクされたピクセルのみを含むポイントクラウドを生成します。
+
+        Args:
+            image: 元のRGB画像。shape (H, W, 3)。
+            mask: このレイヤーに属するピクセルのマスク。shape (H, W)。
+            z: このレイヤーのZ座標。
+            layer_index: レイヤーインデックス。
+
+        Returns:
+            LayerMeshオブジェクト。
+        """
+        h, w = mask.shape
+
+        # マスクされたピクセルの座標を取得
+        y_coords, x_coords = np.where(mask)
+
+        if len(y_coords) == 0:
+            # 空のレイヤー
+            return LayerMesh(
+                vertices=np.array([], dtype=np.float32).reshape(0, 3),
+                colors=np.array([], dtype=np.uint8).reshape(0, 3),
+                z_position=z,
+                layer_index=layer_index,
+                pixel_indices=np.array([], dtype=np.int32).reshape(0, 2),
+            )
+
+        # 座標を[-1, 1]の範囲に正規化
+        # X: 左端が-1、右端が+1
+        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
+        # Y: 上端が+1、下端が-1（画像座標系からOpenGL座標系への変換）
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+        # Z: 指定されたレイヤー位置
+        vertices_z = np.full_like(vertices_x, z)
+
+        vertices = np.stack([vertices_x, vertices_y, vertices_z], axis=1).astype(np.float32)
+
+        # 各頂点の色を取得
+        colors = image[y_coords, x_coords].astype(np.uint8)
+
+        # ピクセルインデックスを保存
+        pixel_indices = np.stack([y_coords, x_coords], axis=1).astype(np.int32)
+
+        return LayerMesh(
+            vertices=vertices,
+            colors=colors,
+            z_position=z,
+            layer_index=layer_index,
+            pixel_indices=pixel_indices,
+        )
+
+    def _create_frame_mesh(self, image_shape: tuple) -> FrameMesh:
+        """フレーム（枠）メッシュを作成。
+
+        イラストを囲む矩形フレームを生成します。
+
+        Args:
+            image_shape: 画像の形状 (H, W)。
+
+        Returns:
+            FrameMeshオブジェクト。
+        """
+        # フレームのサイズ（イラストより少し大きく）
+        margin = 0.05
+        outer = 1.0 + margin
+        inner = 1.0
+
+        # フレームの頂点（外側と内側の4隅ずつ）
+        # 外側
+        vertices = np.array([
+            [-outer, -outer, self._settings.frame_z],  # 0: 外側左下
+            [outer, -outer, self._settings.frame_z],   # 1: 外側右下
+            [outer, outer, self._settings.frame_z],    # 2: 外側右上
+            [-outer, outer, self._settings.frame_z],   # 3: 外側左上
+            # 内側
+            [-inner, -inner, self._settings.frame_z],  # 4: 内側左下
+            [inner, -inner, self._settings.frame_z],   # 5: 内側右下
+            [inner, inner, self._settings.frame_z],    # 6: 内側右上
+            [-inner, inner, self._settings.frame_z],   # 7: 内側左上
+        ], dtype=np.float32)
+
+        # フレームの面（三角形）
+        # 下辺
+        faces = np.array([
+            [0, 1, 5], [0, 5, 4],  # 下辺
+            [1, 2, 6], [1, 6, 5],  # 右辺
+            [2, 3, 7], [2, 7, 6],  # 上辺
+            [3, 0, 4], [3, 4, 7],  # 左辺
+        ], dtype=np.int32)
+
+        # フレームの色（暗い色）
+        color = np.array([30, 30, 30], dtype=np.uint8)
+
+        return FrameMesh(
+            vertices=vertices,
+            faces=faces,
+            color=color,
+            z_position=self._settings.frame_z,
+        )
+
+    def _calculate_bounds(
+        self,
+        layers: List[LayerMesh],
+        frame: Optional[FrameMesh],
+    ) -> tuple:
+        """全メッシュのバウンディングボックスを計算。
+
+        Args:
+            layers: レイヤーメッシュのリスト。
+            frame: フレームメッシュ（None可）。
+
+        Returns:
+            (min_x, max_x, min_y, max_y, min_z, max_z)のタプル。
+        """
+        all_vertices = []
+
+        for layer in layers:
+            if len(layer.vertices) > 0:
+                all_vertices.append(layer.vertices)
+
+        if frame is not None:
+            all_vertices.append(frame.vertices)
+
+        if not all_vertices:
+            # 頂点がない場合はデフォルトのバウンズ
+            return (-1.0, 1.0, -1.0, 1.0, -1.0, 0.0)
+
+        combined = np.vstack(all_vertices)
+
+        return (
+            float(combined[:, 0].min()),
+            float(combined[:, 0].max()),
+            float(combined[:, 1].min()),
+            float(combined[:, 1].max()),
+            float(combined[:, 2].min()),
+            float(combined[:, 2].max()),
+        )

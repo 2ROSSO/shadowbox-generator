@@ -1,0 +1,294 @@
+"""メッシュ生成モジュールのテスト。
+
+このモジュールは、MeshGeneratorと関連データクラスの
+ユニットテストを提供します。
+"""
+
+import numpy as np
+import pytest
+
+from shadowbox.config import RenderSettings
+from shadowbox.core.mesh import (
+    FrameMesh,
+    LayerMesh,
+    MeshGenerator,
+    ShadowboxMesh,
+)
+
+
+class TestMeshGenerator:
+    """MeshGeneratorのテスト。"""
+
+    def test_init(self) -> None:
+        """初期化をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        assert generator._settings == settings
+
+    def test_generate_basic(self) -> None:
+        """基本的なメッシュ生成をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        # テスト用の画像とラベル
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        image[:5, :] = [255, 0, 0]   # 上半分は赤
+        image[5:, :] = [0, 0, 255]   # 下半分は青
+
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:5, :] = 0  # 上半分はレイヤー0
+        labels[5:, :] = 1  # 下半分はレイヤー1
+
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=True)
+
+        # 基本的な検証
+        assert isinstance(mesh, ShadowboxMesh)
+        assert mesh.num_layers == 2
+        assert mesh.frame is not None
+        assert len(mesh.bounds) == 6
+
+    def test_generate_without_frame(self) -> None:
+        """フレームなしのメッシュ生成をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        assert mesh.frame is None
+        assert mesh.num_layers == 1
+
+    def test_layer_z_positions(self) -> None:
+        """レイヤーのZ座標が正しく設定されることをテスト。"""
+        settings = RenderSettings(layer_thickness=0.2, layer_gap=0.0)
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:3, :] = 0
+        labels[3:6, :] = 1
+        labels[6:, :] = 2
+
+        centroids = np.array([0.1, 0.5, 0.9], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # レイヤー0は最も手前（-0.2）
+        assert mesh.layers[0].z_position == pytest.approx(-0.2)
+        # レイヤー1は中間（-0.4）
+        assert mesh.layers[1].z_position == pytest.approx(-0.4)
+        # レイヤー2は最も奥（-0.6）
+        assert mesh.layers[2].z_position == pytest.approx(-0.6)
+
+    def test_layer_with_gap(self) -> None:
+        """レイヤー間のギャップが正しく反映されることをテスト。"""
+        settings = RenderSettings(layer_thickness=0.1, layer_gap=0.05)
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:5, :] = 0
+        labels[5:, :] = 1
+
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # thickness + gap = 0.15
+        assert mesh.layers[0].z_position == pytest.approx(-0.15)
+        assert mesh.layers[1].z_position == pytest.approx(-0.30)
+
+    def test_vertex_coordinates_normalized(self) -> None:
+        """頂点座標が[-1, 1]に正規化されることをテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        # 10x20の画像（幅20、高さ10）
+        image = np.zeros((10, 20, 3), dtype=np.uint8)
+        labels = np.zeros((10, 20), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        vertices = mesh.layers[0].vertices
+
+        # X座標は[-1, 1]の範囲
+        assert vertices[:, 0].min() >= -1.0
+        assert vertices[:, 0].max() <= 1.0
+
+        # Y座標は[-1, 1]の範囲
+        assert vertices[:, 1].min() >= -1.0
+        assert vertices[:, 1].max() <= 1.0
+
+    def test_colors_preserved(self) -> None:
+        """色情報が正しく保存されることをテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((4, 4, 3), dtype=np.uint8)
+        image[0, 0] = [255, 0, 0]    # 赤
+        image[0, 1] = [0, 255, 0]    # 緑
+        image[0, 2] = [0, 0, 255]    # 青
+
+        labels = np.zeros((4, 4), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        colors = mesh.layers[0].colors
+
+        # 色がuint8で保存されている
+        assert colors.dtype == np.uint8
+
+        # 全ピクセルの色が含まれている
+        assert len(colors) == 16
+
+
+class TestLayerMesh:
+    """LayerMeshデータクラスのテスト。"""
+
+    def test_create(self) -> None:
+        """LayerMeshの作成をテスト。"""
+        vertices = np.array([[0, 0, 0], [1, 0, 0]], dtype=np.float32)
+        colors = np.array([[255, 0, 0], [0, 255, 0]], dtype=np.uint8)
+        pixel_indices = np.array([[0, 0], [0, 1]], dtype=np.int32)
+
+        layer = LayerMesh(
+            vertices=vertices,
+            colors=colors,
+            z_position=-0.1,
+            layer_index=0,
+            pixel_indices=pixel_indices,
+        )
+
+        assert layer.z_position == -0.1
+        assert layer.layer_index == 0
+        assert len(layer.vertices) == 2
+
+
+class TestFrameMesh:
+    """FrameMeshデータクラスのテスト。"""
+
+    def test_create(self) -> None:
+        """FrameMeshの作成をテスト。"""
+        vertices = np.zeros((8, 3), dtype=np.float32)
+        faces = np.zeros((8, 3), dtype=np.int32)
+        color = np.array([30, 30, 30], dtype=np.uint8)
+
+        frame = FrameMesh(
+            vertices=vertices,
+            faces=faces,
+            color=color,
+            z_position=0.0,
+        )
+
+        assert frame.z_position == 0.0
+        assert len(frame.vertices) == 8
+
+
+class TestShadowboxMesh:
+    """ShadowboxMeshデータクラスのテスト。"""
+
+    def test_num_layers(self) -> None:
+        """num_layersプロパティをテスト。"""
+        layers = [
+            LayerMesh(
+                vertices=np.zeros((10, 3), dtype=np.float32),
+                colors=np.zeros((10, 3), dtype=np.uint8),
+                z_position=-0.1,
+                layer_index=i,
+                pixel_indices=np.zeros((10, 2), dtype=np.int32),
+            )
+            for i in range(3)
+        ]
+
+        mesh = ShadowboxMesh(layers=layers, frame=None, bounds=(0, 0, 0, 0, 0, 0))
+
+        assert mesh.num_layers == 3
+
+    def test_total_vertices(self) -> None:
+        """total_verticesプロパティをテスト。"""
+        layers = [
+            LayerMesh(
+                vertices=np.zeros((10, 3), dtype=np.float32),
+                colors=np.zeros((10, 3), dtype=np.uint8),
+                z_position=-0.1,
+                layer_index=0,
+                pixel_indices=np.zeros((10, 2), dtype=np.int32),
+            ),
+            LayerMesh(
+                vertices=np.zeros((20, 3), dtype=np.float32),
+                colors=np.zeros((20, 3), dtype=np.uint8),
+                z_position=-0.2,
+                layer_index=1,
+                pixel_indices=np.zeros((20, 2), dtype=np.int32),
+            ),
+        ]
+
+        mesh = ShadowboxMesh(layers=layers, frame=None, bounds=(0, 0, 0, 0, 0, 0))
+
+        assert mesh.total_vertices == 30
+
+
+class TestMeshGeneratorEdgeCases:
+    """メッシュ生成のエッジケーステスト。"""
+
+    def test_single_pixel_image(self) -> None:
+        """1ピクセル画像のメッシュ生成をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.array([[[255, 0, 0]]], dtype=np.uint8)  # 1x1の赤
+        labels = np.array([[0]], dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        assert mesh.num_layers == 1
+        assert len(mesh.layers[0].vertices) == 1
+
+    def test_empty_layer(self) -> None:
+        """空のレイヤーが含まれる場合のテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        # 全ピクセルがレイヤー0、レイヤー1は空
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # レイヤー0には頂点がある
+        assert len(mesh.layers[0].vertices) == 100
+        # レイヤー1は空
+        assert len(mesh.layers[1].vertices) == 0
+
+    def test_bounds_calculation(self) -> None:
+        """バウンディングボックスの計算をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=True)
+
+        min_x, max_x, min_y, max_y, min_z, max_z = mesh.bounds
+
+        # X, Y座標は-1.05〜1.05（フレームのマージン込み）
+        assert min_x == pytest.approx(-1.05, abs=0.01)
+        assert max_x == pytest.approx(1.05, abs=0.01)
+        assert min_y == pytest.approx(-1.05, abs=0.01)
+        assert max_y == pytest.approx(1.05, abs=0.01)
+
+        # Z座標は最奥のレイヤーから最前面のフレームまで
+        assert min_z < 0  # レイヤーは負のZ
+        assert max_z == pytest.approx(0.0, abs=0.01)  # フレームはz=0
