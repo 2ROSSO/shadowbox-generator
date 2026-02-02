@@ -168,6 +168,139 @@ class MeshGenerator:
             bounds=bounds,
         )
 
+    def generate_raw_depth(
+        self,
+        image: NDArray[np.uint8],
+        depth_map: NDArray[np.float32],
+        include_frame: bool = True,
+        depth_scale: float = 1.0,
+    ) -> ShadowboxMesh:
+        """生の深度マップから連続的な3Dメッシュを生成。
+
+        クラスタリングを行わず、各ピクセルの深度値を直接Z座標として使用。
+        より滑らかな深度表現が可能です。
+
+        Args:
+            image: 元のRGB画像。shape (H, W, 3)。
+            depth_map: 正規化された深度マップ (0.0-1.0)。shape (H, W)。
+            include_frame: フレームを含めるかどうか。
+            depth_scale: 深度のスケール係数（大きいほど立体感が増す）。
+
+        Returns:
+            ShadowboxMeshオブジェクト（1レイヤーのみ）。
+        """
+        h, w = image.shape[:2]
+
+        # 全ピクセルの座標を取得
+        y_coords, x_coords = np.mgrid[0:h, 0:w]
+        y_coords = y_coords.flatten()
+        x_coords = x_coords.flatten()
+
+        # 座標を[-1, 1]の範囲に正規化
+        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+
+        # Z座標: depth=0（近い）が手前、depth=1（遠い）が奥
+        # フレームがz=0なので、イラストはその奥（負の値）
+        z_base = -self._settings.layer_thickness
+        z_range = -depth_scale * self._settings.layer_thickness * 5  # 深度の範囲
+        vertices_z = z_base + depth_map.flatten() * z_range
+
+        vertices = np.stack(
+            [vertices_x, vertices_y, vertices_z], axis=1
+        ).astype(np.float32)
+
+        # 各頂点の色を取得
+        colors = image.reshape(-1, 3).astype(np.uint8)
+
+        # ピクセルインデックスを保存
+        pixel_indices = np.stack([y_coords, x_coords], axis=1).astype(np.int32)
+
+        # 単一レイヤーとして作成
+        layer = LayerMesh(
+            vertices=vertices,
+            colors=colors,
+            z_position=float(vertices_z.mean()),  # 平均Z位置
+            layer_index=0,
+            pixel_indices=pixel_indices,
+        )
+
+        # フレームの生成（深度範囲に合わせる）
+        frame = None
+        if include_frame:
+            z_min = float(vertices_z.min())
+            if self._settings.frame_wall_mode == "outer":
+                frame = self._create_frame_mesh_with_walls_custom_depth(
+                    image.shape[:2], z_min
+                )
+            else:
+                frame = self._create_frame_mesh(image.shape[:2])
+
+        # バウンディングボックスの計算
+        bounds = self._calculate_bounds([layer], frame)
+
+        return ShadowboxMesh(
+            layers=[layer],
+            frame=frame,
+            bounds=bounds,
+        )
+
+    def _create_frame_mesh_with_walls_custom_depth(
+        self,
+        image_shape: tuple,
+        z_back: float,
+    ) -> FrameMesh:
+        """カスタム深度で壁付きフレームを作成。
+
+        Args:
+            image_shape: 画像の形状 (H, W)。
+            z_back: 背面のZ座標。
+
+        Returns:
+            FrameMeshオブジェクト（壁付き）。
+        """
+        margin = 0.05
+        outer = 1.0 + margin
+        inner = 1.0
+        z_front = self._settings.frame_z
+
+        vertices = np.array([
+            [-outer, -outer, z_front],
+            [+outer, -outer, z_front],
+            [+outer, +outer, z_front],
+            [-outer, +outer, z_front],
+            [-inner, -inner, z_front],
+            [+inner, -inner, z_front],
+            [+inner, +inner, z_front],
+            [-inner, +inner, z_front],
+            [-outer, -outer, z_back],
+            [+outer, -outer, z_back],
+            [+outer, +outer, z_back],
+            [-outer, +outer, z_back],
+        ], dtype=np.float32)
+
+        faces = np.array([
+            [0, 1, 5], [0, 5, 4],
+            [1, 2, 6], [1, 6, 5],
+            [2, 3, 7], [2, 7, 6],
+            [3, 0, 4], [3, 4, 7],
+            [0, 8, 9], [0, 9, 1],
+            [1, 9, 10], [1, 10, 2],
+            [2, 10, 11], [2, 11, 3],
+            [3, 11, 8], [3, 8, 0],
+        ], dtype=np.int32)
+
+        color = np.array([30, 30, 30], dtype=np.uint8)
+
+        return FrameMesh(
+            vertices=vertices,
+            faces=faces,
+            color=color,
+            z_position=z_front,
+            z_back=z_back,
+            has_walls=True,
+        )
+
     def _create_layer_mesh(
         self,
         image: NDArray[np.uint8],

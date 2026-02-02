@@ -311,3 +311,44 @@ class TestMeshGeneratorEdgeCases:
         # Z座標は最奥のレイヤーから最前面のフレームまで
         assert min_z < 0  # レイヤーは負のZ
         assert max_z == pytest.approx(0.0, abs=0.01)  # フレームはz=0
+
+    def test_generate_raw_depth(self) -> None:
+        """生深度メッシュ生成をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        # テスト用の画像と深度マップ
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        image[:, :] = [255, 128, 64]  # 均一な色
+
+        # グラデーション深度マップ（0.0〜1.0）
+        depth_map = np.linspace(0, 1, 100).reshape(10, 10).astype(np.float32)
+
+        mesh = generator.generate_raw_depth(
+            image, depth_map, include_frame=True, depth_scale=1.0
+        )
+
+        # 基本的な検証
+        assert isinstance(mesh, ShadowboxMesh)
+        assert mesh.num_layers == 1  # 生深度は1レイヤー
+        assert mesh.total_vertices == 100  # 全ピクセル
+
+        # Z座標が連続的に変化していることを確認
+        z_coords = mesh.layers[0].vertices[:, 2]
+        assert z_coords.min() < z_coords.max()  # Z座標に幅がある
+        assert np.all(z_coords <= 0)  # すべて負（フレームより奥）
+
+    def test_generate_raw_depth_without_frame(self) -> None:
+        """フレームなしの生深度メッシュ生成をテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((5, 5, 3), dtype=np.uint8)
+        depth_map = np.ones((5, 5), dtype=np.float32) * 0.5
+
+        mesh = generator.generate_raw_depth(
+            image, depth_map, include_frame=False
+        )
+
+        assert mesh.frame is None
+        assert mesh.num_layers == 1

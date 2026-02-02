@@ -97,6 +97,8 @@ class ShadowboxPipeline:
         k: Optional[int] = None,
         include_frame: bool = True,
         include_card_frame: bool = False,
+        use_raw_depth: bool = False,
+        depth_scale: float = 1.0,
     ) -> PipelineResult:
         """画像からシャドーボックスメッシュを生成。
 
@@ -105,10 +107,14 @@ class ShadowboxPipeline:
             template_name: 使用するカードテンプレート名。
             custom_bbox: カスタムバウンディングボックス（テンプレートより優先）。
             auto_detect: イラスト領域を自動検出するかどうか。
-            k: レイヤー数（Noneの場合は自動探索）。
+            k: レイヤー数（Noneの場合は自動探索）。use_raw_depth=Trueの場合は無視。
             include_frame: フレームを含めるかどうか。
             include_card_frame: カードのフレーム部分を含めるかどうか。
                 Trueの場合、イラスト領域外のピクセルを最前面の深度で統合。
+            use_raw_depth: 生の深度値を使用するかどうか。
+                Trueの場合、クラスタリングをスキップし、各ピクセルの深度を
+                直接Z座標として使用（より滑らかな深度表現）。
+            depth_scale: 生深度モード時の深度スケール（大きいほど立体感が増す）。
 
         Returns:
             PipelineResultオブジェクト。
@@ -129,6 +135,9 @@ class ShadowboxPipeline:
             >>>
             >>> # カードフレームも含める
             >>> result = pipeline.process(image, auto_detect=True, include_card_frame=True)
+            >>>
+            >>> # 生の深度を使用（クラスタリングなし）
+            >>> result = pipeline.process(image, use_raw_depth=True, depth_scale=1.5)
         """
         # 1. 画像を読み込み
         if isinstance(image, (str, Image.Image)):
@@ -181,30 +190,47 @@ class ShadowboxPipeline:
             cropped_array = image_to_array(cropped_pil)
             depth_map = self._depth_estimator.estimate(cropped_pil)
 
-        # 5. 最適なkを探索または使用
-        if k is None:
-            optimal_k = self._clusterer.find_optimal_k(depth_map)
+        # 5. 生深度モード or クラスタリングモード
+        if use_raw_depth:
+            # 生深度モード: クラスタリングをスキップ
+            labels = np.zeros_like(depth_map, dtype=np.int32)  # ダミー
+            centroids = np.array([0.5], dtype=np.float32)  # ダミー
+            optimal_k = 1
+
+            # 生深度メッシュを生成
+            mesh = self._mesh_generator.generate_raw_depth(
+                cropped_array,
+                depth_map,
+                include_frame=include_frame,
+                depth_scale=depth_scale,
+            )
         else:
-            optimal_k = k
+            # クラスタリングモード（従来）
+            if k is None:
+                optimal_k = self._clusterer.find_optimal_k(depth_map)
+            else:
+                optimal_k = k
 
-        # 6. クラスタリング
-        labels, centroids = self._clusterer.cluster(depth_map, optimal_k)
+            # 6. クラスタリング
+            labels, centroids = self._clusterer.cluster(depth_map, optimal_k)
 
-        # 7. カードフレーム統合時: フレーム領域を特別ラベルでマーク
-        if include_card_frame and bbox is not None:
-            # フレームマスクを作成（イラスト領域外）
-            frame_mask = np.ones_like(labels, dtype=bool)
-            frame_mask[bbox.y : bbox.y + bbox.height, bbox.x : bbox.x + bbox.width] = False
-            # フレームピクセルを -1 でマーク（累積計算から除外するため）
-            labels[frame_mask] = -1
+            # 7. カードフレーム統合時: フレーム領域を特別ラベルでマーク
+            if include_card_frame and bbox is not None:
+                # フレームマスクを作成（イラスト領域外）
+                frame_mask = np.ones_like(labels, dtype=bool)
+                frame_mask[bbox.y : bbox.y + bbox.height, bbox.x : bbox.x + bbox.width] = (
+                    False
+                )
+                # フレームピクセルを -1 でマーク（累積計算から除外するため）
+                labels[frame_mask] = -1
 
-        # 8. メッシュ生成
-        mesh = self._mesh_generator.generate(
-            cropped_array,
-            labels,
-            centroids,
-            include_frame=include_frame,
-        )
+            # 8. メッシュ生成
+            mesh = self._mesh_generator.generate(
+                cropped_array,
+                labels,
+                centroids,
+                include_frame=include_frame,
+            )
 
         return PipelineResult(
             original_image=original_array,
