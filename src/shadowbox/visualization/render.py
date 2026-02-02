@@ -366,6 +366,24 @@ def _render_with_plotly(mesh: ShadowboxMesh, options: Optional[RenderOptions] = 
         )
         traces.append(trace)
 
+    # フレームをMesh3dとして追加
+    if opts.show_frame and mesh.frame is not None:
+        frame = mesh.frame
+        frame_color = f"rgb({frame.color[0]},{frame.color[1]},{frame.color[2]})"
+        frame_trace = go.Mesh3d(
+            x=frame.vertices[:, 0],
+            y=frame.vertices[:, 1],
+            z=frame.vertices[:, 2],
+            i=frame.faces[:, 0],
+            j=frame.faces[:, 1],
+            k=frame.faces[:, 2],
+            color=frame_color,
+            opacity=0.9,
+            name="Frame",
+            hoverinfo="skip",
+        )
+        traces.append(frame_trace)
+
     # 背景色を正規化
     bg = opts.background_color
     bg_str = f"rgb({bg[0]},{bg[1]},{bg[2]})"

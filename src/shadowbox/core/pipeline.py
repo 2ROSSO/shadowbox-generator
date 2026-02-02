@@ -190,7 +190,15 @@ class ShadowboxPipeline:
         # 6. クラスタリング
         labels, centroids = self._clusterer.cluster(depth_map, optimal_k)
 
-        # 7. メッシュ生成
+        # 7. カードフレーム統合時: フレーム領域を特別ラベルでマーク
+        if include_card_frame and bbox is not None:
+            # フレームマスクを作成（イラスト領域外）
+            frame_mask = np.ones_like(labels, dtype=bool)
+            frame_mask[bbox.y : bbox.y + bbox.height, bbox.x : bbox.x + bbox.width] = False
+            # フレームピクセルを -1 でマーク（累積計算から除外するため）
+            labels[frame_mask] = -1
+
+        # 8. メッシュ生成
         mesh = self._mesh_generator.generate(
             cropped_array,
             labels,

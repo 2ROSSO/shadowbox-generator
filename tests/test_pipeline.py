@@ -186,7 +186,10 @@ class TestPipelineIntegration:
         """小さい画像での処理をテスト。"""
         image = Image.new("RGB", (10, 10), color="red")
 
-        pipeline = create_pipeline(use_mock_depth=True)
+        # 非累積モードで全体の頂点数を確認
+        settings = ShadowboxSettings()
+        settings.render.cumulative_layers = False
+        pipeline = create_pipeline(settings, use_mock_depth=True)
         result = pipeline.process(image, k=2)
 
         assert result.mesh.total_vertices == 100  # 10x10ピクセル

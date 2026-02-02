@@ -44,18 +44,23 @@ class FrameMesh:
     """フレーム（枠）の3Dメッシュデータ。
 
     シャドーボックスの枠部分を表現します。
+    壁モードが有効な場合、前面から背面まで繋がる3D壁を持ちます。
 
     Attributes:
-        vertices: 頂点座標。shape (8, 3)。
+        vertices: 頂点座標。shape (N, 3)。壁なしは8頂点、壁ありは12頂点。
         faces: 面のインデックス。shape (M, 3)。
         color: フレームの色。RGB値(0-255)。
         z_position: フレームのZ座標（最前面）。
+        z_back: フレーム背面のZ座標（壁がある場合）。
+        has_walls: 壁（3D厚み）があるかどうか。
     """
 
     vertices: NDArray[np.float32]
     faces: NDArray[np.int32]
     color: NDArray[np.uint8]
     z_position: float
+    z_back: Optional[float] = None
+    has_walls: bool = False
 
 
 @dataclass
@@ -140,14 +145,19 @@ class MeshGenerator:
             # フレームがz=0なので、イラストはその奥
             z = -(i + 1) * (self._settings.layer_thickness + self._settings.layer_gap)
 
-            mask = labels == i
-            layer_mesh = self._create_layer_mesh(image, mask, z, i)
+            layer_mesh = self._create_layer_mesh(
+                image, labels, z, i,
+                cumulative=self._settings.cumulative_layers,
+            )
             layers.append(layer_mesh)
 
         # フレームの生成
         frame = None
         if include_frame:
-            frame = self._create_frame_mesh(image.shape[:2])
+            if self._settings.frame_wall_mode == "outer":
+                frame = self._create_frame_mesh_with_walls(image.shape[:2], num_layers)
+            else:
+                frame = self._create_frame_mesh(image.shape[:2])
 
         # バウンディングボックスの計算
         bounds = self._calculate_bounds(layers, frame)
@@ -161,9 +171,10 @@ class MeshGenerator:
     def _create_layer_mesh(
         self,
         image: NDArray[np.uint8],
-        mask: NDArray[np.bool_],
+        labels: NDArray[np.int32],
         z: float,
         layer_index: int,
+        cumulative: bool = True,
     ) -> LayerMesh:
         """単一レイヤーのメッシュを作成。
 
@@ -171,13 +182,28 @@ class MeshGenerator:
 
         Args:
             image: 元のRGB画像。shape (H, W, 3)。
-            mask: このレイヤーに属するピクセルのマスク。shape (H, W)。
+            labels: 各ピクセルのレイヤーインデックス。shape (H, W)。
             z: このレイヤーのZ座標。
             layer_index: レイヤーインデックス。
+            cumulative: 累積レイヤーモード。Trueの場合、このレイヤー以下の
+                すべてのピクセルを含む（奥のレイヤーほど完全な画像に近づく）。
 
         Returns:
             LayerMeshオブジェクト。
         """
+        if cumulative:
+            # 累積マスク: このレイヤー以下のすべてのピクセル
+            # ただし、labels == -1（カードフレーム）は特別処理
+            if layer_index == 0:
+                # レイヤー0のみ: フレームピクセル(-1)を含む
+                mask = (labels <= layer_index) | (labels == -1)
+            else:
+                # レイヤー1以降: フレームピクセルは除外
+                mask = (labels <= layer_index) & (labels >= 0)
+        else:
+            # 従来: このレイヤーのピクセルのみ
+            mask = labels == layer_index
+
         h, w = mask.shape
 
         # マスクされたピクセルの座標を取得
@@ -264,6 +290,74 @@ class MeshGenerator:
             faces=faces,
             color=color,
             z_position=self._settings.frame_z,
+        )
+
+    def _create_frame_mesh_with_walls(
+        self,
+        image_shape: tuple,
+        num_layers: int,
+    ) -> FrameMesh:
+        """壁付きフレーム（枠）メッシュを作成。
+
+        本物のシャドーボックスのように、前面から背面まで繋がる
+        3D壁を持つフレームを生成します。
+
+        Args:
+            image_shape: 画像の形状 (H, W)。
+            num_layers: レイヤー数（背面Z位置の計算用）。
+
+        Returns:
+            FrameMeshオブジェクト（壁付き）。
+        """
+        margin = 0.05
+        outer = 1.0 + margin
+        inner = 1.0
+        z_front = self._settings.frame_z
+        z_back = -num_layers * (self._settings.layer_thickness + self._settings.layer_gap)
+
+        # 12頂点: 前面外側4 + 前面内側4 + 背面外側4
+        vertices = np.array([
+            # 前面外側 (0-3)
+            [-outer, -outer, z_front],
+            [+outer, -outer, z_front],
+            [+outer, +outer, z_front],
+            [-outer, +outer, z_front],
+            # 前面内側 (4-7)
+            [-inner, -inner, z_front],
+            [+inner, -inner, z_front],
+            [+inner, +inner, z_front],
+            [-inner, +inner, z_front],
+            # 背面外側 (8-11)
+            [-outer, -outer, z_back],
+            [+outer, -outer, z_back],
+            [+outer, +outer, z_back],
+            [-outer, +outer, z_back],
+        ], dtype=np.float32)
+
+        # 面の構成: 前面枠8三角形 + 外壁8三角形 = 16三角形
+        faces = np.array([
+            # 前面枠
+            [0, 1, 5], [0, 5, 4],  # 下辺
+            [1, 2, 6], [1, 6, 5],  # 右辺
+            [2, 3, 7], [2, 7, 6],  # 上辺
+            [3, 0, 4], [3, 4, 7],  # 左辺
+            # 外壁（下/右/上/左）
+            [0, 8, 9], [0, 9, 1],   # 下壁
+            [1, 9, 10], [1, 10, 2],  # 右壁
+            [2, 10, 11], [2, 11, 3],  # 上壁
+            [3, 11, 8], [3, 8, 0],   # 左壁
+        ], dtype=np.int32)
+
+        # フレームの色（暗い色）
+        color = np.array([30, 30, 30], dtype=np.uint8)
+
+        return FrameMesh(
+            vertices=vertices,
+            faces=faces,
+            color=color,
+            z_position=z_front,
+            z_back=z_back,
+            has_walls=True,
         )
 
     def _calculate_bounds(

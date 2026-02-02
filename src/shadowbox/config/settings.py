@@ -90,6 +90,12 @@ class RenderSettings:
         background_color: 3Dシーンの背景色 (16進数カラーコード)。
         lighting_intensity: シーン照明の強度。
         point_size: ポイントクラウドレンダリング時の点のサイズ。
+        frame_wall_mode: フレームの壁モード。
+            - "none": 壁なし（従来の2D平面フレーム）
+            - "outer": 外側の壁のみ（本物のシャドーボックス風）
+        cumulative_layers: 累積レイヤーモード。
+            Trueの場合、奥のレイヤーは手前のピクセルを継承し、
+            最奥のレイヤーは完全な画像になります。
 
     Example:
         >>> # デフォルト設定
@@ -97,6 +103,9 @@ class RenderSettings:
         >>>
         >>> # レイヤー間に隙間を設ける
         >>> settings = RenderSettings(layer_gap=0.05)
+        >>>
+        >>> # 従来の穴あきレイヤーモード
+        >>> settings = RenderSettings(cumulative_layers=False)
     """
 
     layer_thickness: float = 0.1
@@ -105,6 +114,8 @@ class RenderSettings:
     background_color: str = "#1a1a2e"
     lighting_intensity: float = 1.0
     point_size: int = 3
+    frame_wall_mode: Literal["none", "outer"] = "outer"
+    cumulative_layers: bool = True
 
 
 @dataclass

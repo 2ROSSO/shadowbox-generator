@@ -254,8 +254,9 @@ class TestMeshGeneratorEdgeCases:
         assert len(mesh.layers[0].vertices) == 1
 
     def test_empty_layer(self) -> None:
-        """空のレイヤーが含まれる場合のテスト。"""
+        """空のレイヤーが含まれる場合のテスト（非累積モード）。"""
         settings = RenderSettings()
+        settings.cumulative_layers = False  # 従来の穴あきモード
         generator = MeshGenerator(settings)
 
         image = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -267,8 +268,26 @@ class TestMeshGeneratorEdgeCases:
 
         # レイヤー0には頂点がある
         assert len(mesh.layers[0].vertices) == 100
-        # レイヤー1は空
+        # レイヤー1は空（非累積モードなので空になる）
         assert len(mesh.layers[1].vertices) == 0
+
+    def test_cumulative_layers(self) -> None:
+        """累積レイヤーモードのテスト。"""
+        settings = RenderSettings()
+        settings.cumulative_layers = True  # 累積モード（デフォルト）
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        # 全ピクセルがレイヤー0
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # レイヤー0には頂点がある
+        assert len(mesh.layers[0].vertices) == 100
+        # レイヤー1も全ピクセルを含む（累積モードなので）
+        assert len(mesh.layers[1].vertices) == 100
 
     def test_bounds_calculation(self) -> None:
         """バウンディングボックスの計算をテスト。"""
