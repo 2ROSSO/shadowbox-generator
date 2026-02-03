@@ -99,6 +99,7 @@ class ShadowboxPipeline:
         include_card_frame: bool = False,
         use_raw_depth: bool = False,
         depth_scale: float = 1.0,
+        max_resolution: Optional[int] = None,
     ) -> PipelineResult:
         """画像からシャドーボックスメッシュを生成。
 
@@ -115,6 +116,9 @@ class ShadowboxPipeline:
                 Trueの場合、クラスタリングをスキップし、各ピクセルの深度を
                 直接Z座標として使用（より滑らかな深度表現）。
             depth_scale: 生深度モード時の深度スケール（大きいほど立体感が増す）。
+            max_resolution: 最大解像度（ピクセル）。指定すると画像をダウンサンプリング
+                してポイント数を削減し、レンダリングを高速化。
+                例: max_resolution=200 → 最大200x200ピクセル（40,000ポイント）
 
         Returns:
             PipelineResultオブジェクト。
@@ -138,6 +142,9 @@ class ShadowboxPipeline:
             >>>
             >>> # 生の深度を使用（クラスタリングなし）
             >>> result = pipeline.process(image, use_raw_depth=True, depth_scale=1.5)
+            >>>
+            >>> # 軽量プレビュー（最大200x200ピクセル）
+            >>> result = pipeline.process(image, auto_detect=True, max_resolution=200)
         """
         # 1. 画像を読み込み
         if isinstance(image, (str, Image.Image)):
@@ -168,6 +175,14 @@ class ShadowboxPipeline:
             )
         else:
             cropped_pil = pil_image
+
+        # 3.5. ダウンサンプリング（max_resolution指定時）
+        if max_resolution is not None:
+            cropped_pil, pil_image, bbox = self._downsample_if_needed(
+                cropped_pil, pil_image, bbox, max_resolution
+            )
+            # original_arrayも更新
+            original_array = image_to_array(pil_image)
 
         # 4. 深度推定とカードフレーム統合
         if include_card_frame and bbox is not None:
@@ -242,6 +257,57 @@ class ShadowboxPipeline:
             optimal_k=optimal_k,
             bbox=bbox,
         )
+
+    def _downsample_if_needed(
+        self,
+        cropped_pil: Image.Image,
+        original_pil: Image.Image,
+        bbox: Optional[BoundingBox],
+        max_resolution: int,
+    ) -> tuple:
+        """必要に応じて画像をダウンサンプリング。
+
+        Args:
+            cropped_pil: クロップ済み画像。
+            original_pil: 元画像。
+            bbox: バウンディングボックス。
+            max_resolution: 最大解像度。
+
+        Returns:
+            (ダウンサンプリング済みcropped_pil, original_pil, 調整済みbbox)のタプル。
+        """
+        w, h = cropped_pil.size
+
+        # 最大解像度を超えていない場合はそのまま返す
+        if max(w, h) <= max_resolution:
+            return cropped_pil, original_pil, bbox
+
+        # スケール係数を計算
+        scale = max_resolution / max(w, h)
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+
+        # クロップ画像をリサイズ
+        cropped_pil = cropped_pil.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        # include_card_frame用にoriginal_pilもリサイズ
+        orig_w, orig_h = original_pil.size
+        new_orig_w = int(orig_w * scale)
+        new_orig_h = int(orig_h * scale)
+        original_pil = original_pil.resize(
+            (new_orig_w, new_orig_h), Image.Resampling.LANCZOS
+        )
+
+        # bboxもスケール
+        if bbox is not None:
+            bbox = BoundingBox(
+                x=int(bbox.x * scale),
+                y=int(bbox.y * scale),
+                width=new_w,
+                height=new_h,
+            )
+
+        return cropped_pil, original_pil, bbox
 
     def _resolve_bbox(
         self,

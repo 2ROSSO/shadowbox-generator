@@ -24,6 +24,11 @@ from shadowbox.visualization.render import (
     render_layers_exploded,
     render_shadowbox,
 )
+from shadowbox.visualization.export import (
+    export_to_stl,
+    export_to_obj,
+    export_to_ply,
+)
 
 __all__ = [
     # heatmap
@@ -43,4 +48,8 @@ __all__ = [
     "ShadowboxRenderer",
     "render_shadowbox",
     "render_layers_exploded",
+    # export
+    "export_to_stl",
+    "export_to_obj",
+    "export_to_ply",
 ]
