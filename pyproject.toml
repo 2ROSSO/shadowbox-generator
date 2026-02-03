@@ -41,8 +41,13 @@ jupyter = [
 gui = [
     "PyQt6>=6.5.0",
 ]
+triposr = [
+    "tsr>=0.1.0",      # TripoSR model
+    "trimesh>=4.0.0",  # Mesh processing
+    "rembg>=2.0.0",    # Background removal (optional but recommended)
+]
 all = [
-    "shadowbox-generator[jupyter,gui]",
+    "shadowbox-generator[jupyter,gui,triposr]",
 ]
 
 [project.urls]
@@ -95,6 +100,9 @@ module = [
     "transformers.*",
     "sklearn.*",
     "cv2.*",
+    "tsr.*",
+    "trimesh.*",
+    "rembg.*",
 ]
 ignore_missing_imports = true
 

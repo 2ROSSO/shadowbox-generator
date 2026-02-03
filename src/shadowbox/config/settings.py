@@ -6,7 +6,10 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from shadowbox.triposr.settings import TripoSRSettings
 
 
 @dataclass
@@ -132,9 +135,13 @@ class ShadowboxSettings:
     一元管理するトップレベルの設定オブジェクトです。
 
     Attributes:
+        model_mode: 3Dモデル生成モード。
+            - "depth": 深度推定+クラスタリング（デフォルト、シャドーボックス風）
+            - "triposr": TripoSRによる直接3Dメッシュ生成
         depth: 深度推定の設定。
         clustering: クラスタリングの設定。
         render: レンダリングの設定。
+        triposr: TripoSR設定（model_mode="triposr"時に使用）。
         templates_dir: カードテンプレートYAMLファイルの保存ディレクトリ。
 
     Example:
@@ -142,18 +149,25 @@ class ShadowboxSettings:
         >>> settings = ShadowboxSettings()
         >>> pipeline = create_pipeline(settings)
         >>>
-        >>> # モデルを変更
-        >>> settings = ShadowboxSettings()
-        >>> settings.depth.model_type = "midas"
+        >>> # TripoSRモードを使用
+        >>> settings = ShadowboxSettings(model_mode="triposr")
         >>> pipeline = create_pipeline(settings)
     """
 
+    model_mode: Literal["depth", "triposr"] = "depth"
     depth: DepthEstimationSettings = field(default_factory=DepthEstimationSettings)
     clustering: ClusteringSettings = field(default_factory=ClusteringSettings)
     render: RenderSettings = field(default_factory=RenderSettings)
+    triposr: "TripoSRSettings" = field(default_factory=lambda: _get_triposr_settings())
     templates_dir: Path = field(default_factory=lambda: Path("data/templates"))
 
     def __post_init__(self) -> None:
         """初期化後処理: templates_dirを文字列からPathに変換。"""
         if isinstance(self.templates_dir, str):
             self.templates_dir = Path(self.templates_dir)
+
+
+def _get_triposr_settings():
+    """TripoSRSettingsを遅延インポートして取得。"""
+    from shadowbox.triposr.settings import TripoSRSettings
+    return TripoSRSettings()
