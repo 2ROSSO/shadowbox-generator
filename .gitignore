@@ -81,3 +81,6 @@ logs/
 
 # Claude Code
 .claude/
+
+# External dependencies (cloned repos)
+/TripoSR/

@@ -13,7 +13,56 @@ from shadowbox.core.mesh import LayerMesh, ShadowboxMesh
 from shadowbox.triposr.settings import TripoSRSettings
 
 if TYPE_CHECKING:
-    from tsr import TSR
+    from tsr.system import TSR
+
+
+def _find_triposr_directory() -> str | None:
+    """TripoSRディレクトリを自動検出。
+
+    以下の場所を順番に探索:
+    1. カレントディレクトリのTripoSR/
+    2. プロジェクトルート（pyproject.tomlがある場所）のTripoSR/
+    3. このファイルの親ディレクトリからの相対パス
+
+    Returns:
+        TripoSRディレクトリのパス、または見つからない場合はNone。
+    """
+    import sys
+    from pathlib import Path
+
+    # 既にsys.pathにある場合はスキップ
+    try:
+        import tsr  # noqa: F401
+        return None  # 既にインポート可能
+    except ImportError:
+        pass
+
+    candidates = []
+
+    # 1. カレントディレクトリ
+    candidates.append(Path.cwd() / "TripoSR")
+
+    # 2. プロジェクトルート（pyproject.tomlを探す）
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            candidates.append(parent / "TripoSR")
+            break
+
+    # 3. このファイルから相対的に探索
+    # src/shadowbox/triposr/generator.py → プロジェクトルート
+    src_root = Path(__file__).resolve().parent.parent.parent.parent
+    candidates.append(src_root / "TripoSR")
+
+    # 候補をチェック
+    for candidate in candidates:
+        if candidate.exists() and (candidate / "tsr").is_dir():
+            triposr_path = str(candidate)
+            if triposr_path not in sys.path:
+                sys.path.insert(0, triposr_path)
+            return triposr_path
+
+    return None
 
 
 class TripoSRGenerator:
@@ -49,14 +98,18 @@ class TripoSRGenerator:
         if self._model is not None:
             return
 
+        # TripoSRディレクトリをPYTHONPATHに追加（必要な場合）
+        _find_triposr_directory()
+
         try:
-            from tsr import TSR
+            from tsr.system import TSR
         except ImportError as e:
             raise ImportError(
-                "TripoSRを使用するには、triposr依存関係をインストールしてください:\n"
-                "  pip install shadowbox[triposr]\n"
-                "または直接:\n"
-                "  pip install tsr"
+                "TripoSRを使用するには、以下の手順でインストールしてください:\n"
+                "  1. git clone https://github.com/VAST-AI-Research/TripoSR.git\n"
+                "  2. pip install -r TripoSR/requirements.txt\n"
+                "  3. TripoSRディレクトリをPYTHONPATHに追加するか、\n"
+                "     TripoSRディレクトリから実行してください"
             ) from e
 
         # デバイスを決定
@@ -107,6 +160,7 @@ class TripoSRGenerator:
             scene_codes = self._model([image], device=self._device)
             meshes = self._model.extract_mesh(
                 scene_codes,
+                has_vertex_color=True,
                 resolution=self._settings.mc_resolution,
             )
 

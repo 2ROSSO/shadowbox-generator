@@ -42,10 +42,14 @@ gui = [
     "PyQt6>=6.5.0",
 ]
 triposr = [
-    "tsr>=0.0.3",      # TripoSR model
-    "trimesh>=4.0.0",  # Mesh processing
+    # TripoSRの依存関係（TripoSR本体は別途手動インストールが必要）
+    # インストール手順:
+    #   git clone https://github.com/VAST-AI-Research/TripoSR.git
+    #   pip install -r TripoSR/requirements.txt
+    "trimesh>=4.0.0",     # Mesh processing
+    "omegaconf>=2.3.0",   # Configuration
+    "einops>=0.7.0",      # Tensor operations
     # Note: rembg is optional for background removal but has Python version conflicts
-    # Install separately if needed: pip install rembg
 ]
 all = [
     "shadowbox-generator[jupyter,gui,triposr]",
@@ -110,4 +114,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-v --cov=shadowbox --cov-report=term-missing"
+addopts = "-v --cov=shadowbox --cov-report=term-missing -m 'not slow and not integration'"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests requiring external resources",
+]

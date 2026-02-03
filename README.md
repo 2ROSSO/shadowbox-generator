@@ -42,7 +42,36 @@ uv sync --all-extras
 | ---------- | ---------------------------------- | --------------------------------------------------------- |
 | `jupyter`  | jupyter, ipykernel, ipympl, plotly | Jupyter Notebook での実行、**手動領域選択**、**3Dビュー** |
 | `gui`      | PyQt6                              | スタンドアロンGUIアプリ                                   |
+| `triposr`  | trimesh, omegaconf, einops         | TripoSRによる3Dメッシュ生成（別途手動インストール必要）   |
 | `all`      | 上記すべて                         | フル機能                                                  |
+
+### TripoSR のインストール（オプション）
+
+TripoSR を使用して単一画像から直接3Dメッシュを生成するには、以下の手順で手動インストールが必要です：
+
+```bash
+# 1. 依存関係をインストール
+uv sync --extra triposr
+
+# 2. TripoSR をクローン
+git clone https://github.com/VAST-AI-Research/TripoSR.git
+
+# 3. TripoSR の追加依存関係をインストール
+pip install -r TripoSR/requirements.txt
+
+# 4. 実行時に PYTHONPATH を設定
+export PYTHONPATH=$PYTHONPATH:$(pwd)/TripoSR  # Linux/Mac
+set PYTHONPATH=%PYTHONPATH%;%cd%\TripoSR      # Windows
+```
+
+TripoSR モードを使用するには：
+
+```python
+from shadowbox.config import ShadowboxSettings
+
+settings = ShadowboxSettings(model_mode="triposr")
+pipeline = create_pipeline(settings)
+```
 
 > **Note**: Jupyter Notebook で以下の機能を使用するには `jupyter` オプションが必要です:
 >
