@@ -140,6 +140,7 @@ class MeshGenerator:
         layers = []
         num_layers = len(centroids)
         interp_count = self._settings.layer_interpolation
+        pop_out = self._settings.layer_pop_out
 
         # 各レイヤーのZ位置を事前計算
         layer_z_positions = []
@@ -150,10 +151,15 @@ class MeshGenerator:
         # 最背面のZ位置
         back_z = -num_layers * (self._settings.layer_thickness + self._settings.layer_gap)
 
+        # 飛び出しオフセットを計算（フレーム厚みに対する比率）
+        total_depth = abs(back_z)
+        pop_out_offset = total_depth * pop_out if pop_out > 0 else 0
+
         # フレームの存在確認（labels == -1 があるか）
         has_card_frame = np.any(labels == -1)
 
         # フレーム補間（labels == -1 のピクセルのみ、最前面から最背面まで）
+        # フレームは飛び出しなし
         if interp_count > 0 and has_card_frame:
             frame_z_start = layer_z_positions[0]  # レイヤー0と同じ位置から開始
             for j in range(1, interp_count + 1):
@@ -163,9 +169,9 @@ class MeshGenerator:
                 if len(frame_layer.vertices) > 0:
                     layers.append(frame_layer)
 
-        # 各レイヤーを生成
+        # 各レイヤーを生成（イラストレイヤーは飛び出しオフセット適用）
         for i in range(num_layers):
-            z = layer_z_positions[i]
+            z = layer_z_positions[i] + pop_out_offset  # 飛び出し
 
             layer_mesh = self._create_layer_mesh(
                 image, labels, z, i,
@@ -176,7 +182,8 @@ class MeshGenerator:
             # レイヤー補間（すべてのレイヤーで次のレイヤーまで補間）
             if interp_count > 0:
                 z_start = z
-                z_end = layer_z_positions[i + 1] if i + 1 < num_layers else back_z
+                next_z = layer_z_positions[i + 1] + pop_out_offset if i + 1 < num_layers else back_z + pop_out_offset
+                z_end = next_z
 
                 # N個の補間レイヤーを追加
                 for j in range(1, interp_count + 1):
@@ -189,9 +196,10 @@ class MeshGenerator:
                     layers.append(interp_layer)
 
         # 最背面パネル（カード全体画像）を追加
-        # 最深レイヤーと同じ深さに配置
+        # 飛び出しオフセット適用
         if self._settings.back_panel:
-            back_panel = self._create_back_panel(image, back_z, num_layers)
+            back_panel_z = back_z + pop_out_offset
+            back_panel = self._create_back_panel(image, back_panel_z, num_layers)
             layers.append(back_panel)
 
         frame_num_layers = num_layers
