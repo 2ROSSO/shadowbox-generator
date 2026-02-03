@@ -85,7 +85,7 @@ class TripoSRPipeline:
 
         # バウンディングボックスでクロップ
         if bbox is not None:
-            cropped_image = crop_image(pil_image, bbox)
+            cropped_image = crop_image(pil_image, bbox.x, bbox.y, bbox.width, bbox.height)
         else:
             cropped_image = pil_image
 
