@@ -139,11 +139,19 @@ class MeshGenerator:
         """
         layers = []
         num_layers = len(centroids)
+        interp_count = self._settings.layer_interpolation
+
+        # 各レイヤーのZ位置を事前計算
+        layer_z_positions = []
+        for i in range(num_layers):
+            z = -(i + 1) * (self._settings.layer_thickness + self._settings.layer_gap)
+            layer_z_positions.append(z)
+
+        # 最背面のZ位置
+        back_z = -num_layers * (self._settings.layer_thickness + self._settings.layer_gap)
 
         for i in range(num_layers):
-            # Z位置: レイヤー0は-layer_thickness、レイヤーnは-(n+1)*layer_thickness
-            # フレームがz=0なので、イラストはその奥
-            z = -(i + 1) * (self._settings.layer_thickness + self._settings.layer_gap)
+            z = layer_z_positions[i]
 
             layer_mesh = self._create_layer_mesh(
                 image, labels, z, i,
@@ -151,11 +159,30 @@ class MeshGenerator:
             )
             layers.append(layer_mesh)
 
+            # レイヤー補間
+            if interp_count > 0:
+                if i == 0:
+                    # レイヤー0（フレーム含む）: 最背面まで補間
+                    z_start = z
+                    z_end = back_z
+                else:
+                    # その他のレイヤー: 次のレイヤーまで補間
+                    z_start = z
+                    z_end = layer_z_positions[i + 1] if i + 1 < num_layers else back_z
+
+                # N個の補間レイヤーを追加
+                for j in range(1, interp_count + 1):
+                    t = j / (interp_count + 1)
+                    interp_z = z_start + (z_end - z_start) * t
+                    interp_layer = self._create_layer_mesh(
+                        image, labels, interp_z, i,
+                        cumulative=self._settings.cumulative_layers,
+                    )
+                    layers.append(interp_layer)
+
         # 最背面パネル（カード全体画像）を追加
         # 最深レイヤーと同じ深さに配置
         if self._settings.back_panel:
-            # 最後のレイヤーと同じZ位置
-            back_z = -num_layers * (self._settings.layer_thickness + self._settings.layer_gap)
             back_panel = self._create_back_panel(image, back_z, num_layers)
             layers.append(back_panel)
 

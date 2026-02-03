@@ -119,6 +119,7 @@ class RenderSettings:
     frame_wall_mode: Literal["none", "outer"] = "outer"
     cumulative_layers: bool = True
     back_panel: bool = True
+    layer_interpolation: int = 0  # レイヤー間の補間数（0で無効）
 
 
 @dataclass
