@@ -334,8 +334,13 @@ class MeshGenerator:
                 # レイヤー1以降: フレームピクセルは除外
                 mask = (labels <= layer_index) & (labels >= 0)
         else:
-            # 従来: このレイヤーのピクセルのみ
-            mask = labels == layer_index
+            # 穴あきモード: このレイヤーのピクセルのみ
+            if layer_index == 0:
+                # レイヤー0: フレームピクセル(-1)も含む
+                mask = (labels == layer_index) | (labels == -1)
+            else:
+                # レイヤー1以降: そのレイヤーのピクセルのみ
+                mask = labels == layer_index
 
         h, w = mask.shape
 
