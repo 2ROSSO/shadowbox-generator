@@ -5,7 +5,6 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -46,7 +45,7 @@ class PipelineResult:
     centroids: NDArray[np.float32]
     mesh: ShadowboxMesh
     optimal_k: int
-    bbox: Optional[BoundingBox]
+    bbox: BoundingBox | None
 
 
 class ShadowboxPipeline:
@@ -91,15 +90,15 @@ class ShadowboxPipeline:
     def process(
         self,
         image: Image.Image | NDArray | str,
-        template_name: Optional[str] = None,
-        custom_bbox: Optional[BoundingBox] = None,
+        template_name: str | None = None,
+        custom_bbox: BoundingBox | None = None,
         auto_detect: bool = False,
-        k: Optional[int] = None,
+        k: int | None = None,
         include_frame: bool = True,
         include_card_frame: bool = False,
         use_raw_depth: bool = False,
         depth_scale: float = 1.0,
-        max_resolution: Optional[int] = None,
+        max_resolution: int | None = None,
     ) -> PipelineResult:
         """画像からシャドーボックスメッシュを生成。
 
@@ -262,7 +261,7 @@ class ShadowboxPipeline:
         self,
         cropped_pil: Image.Image,
         original_pil: Image.Image,
-        bbox: Optional[BoundingBox],
+        bbox: BoundingBox | None,
         max_resolution: int,
     ) -> tuple:
         """必要に応じて画像をダウンサンプリング。
@@ -312,10 +311,10 @@ class ShadowboxPipeline:
     def _resolve_bbox(
         self,
         image: Image.Image,
-        template_name: Optional[str],
-        custom_bbox: Optional[BoundingBox],
+        template_name: str | None,
+        custom_bbox: BoundingBox | None,
         auto_detect: bool,
-    ) -> Optional[BoundingBox]:
+    ) -> BoundingBox | None:
         """使用するバウンディングボックスを決定。
 
         優先順位: custom_bbox > template > auto_detect > None（画像全体）
@@ -338,8 +337,8 @@ class ShadowboxPipeline:
             try:
                 template = self._config_loader.load_template(template_name)
                 return template.illustration_area
-            except FileNotFoundError:
-                raise ValueError(f"テンプレートが見つかりません: {template_name}")
+            except FileNotFoundError as e:
+                raise ValueError(f"テンプレートが見つかりません: {template_name}") from e
 
         # 自動検出（将来実装予定）
         if auto_detect:
@@ -352,7 +351,7 @@ class ShadowboxPipeline:
 
 
 def create_pipeline(
-    settings: Optional[ShadowboxSettings] = None,
+    settings: ShadowboxSettings | None = None,
     use_mock_depth: bool = False,
 ):
     """設定に基づいてパイプラインを作成するファクトリ関数。

@@ -4,7 +4,7 @@ Stability AIのTripoSRモデルを使用して、
 単一画像から3Dメッシュを生成します。
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
@@ -90,8 +90,8 @@ class TripoSRGenerator:
             settings: TripoSR設定。
         """
         self._settings = settings
-        self._model: Optional["TSR"] = None
-        self._device: Optional[str] = None
+        self._model: TSR | None = None
+        self._device: str | None = None
 
     def _ensure_model(self) -> None:
         """モデルが初期化されていることを確認（遅延初期化）。"""
@@ -148,10 +148,11 @@ class TripoSRGenerator:
 
         # 背景除去（オプション）
         if self._settings.remove_background:
-            try:
-                import rembg
+            import importlib.util
+
+            if importlib.util.find_spec("rembg") is not None:
                 image = self._remove_background(image)
-            except ImportError:
+            else:
                 print("警告: rembgがインストールされていないため、背景除去をスキップします")
 
         # TripoSRで3Dメッシュ生成

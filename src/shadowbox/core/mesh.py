@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,7 +41,7 @@ class LayerMesh:
     z_position: float
     layer_index: int
     pixel_indices: NDArray[np.int32]
-    faces: Optional[NDArray[np.int32]] = None
+    faces: NDArray[np.int32] | None = None
 
 
 @dataclass
@@ -65,7 +64,7 @@ class FrameMesh:
     faces: NDArray[np.int32]
     color: NDArray[np.uint8]
     z_position: float
-    z_back: Optional[float] = None
+    z_back: float | None = None
     has_walls: bool = False
 
 
@@ -87,8 +86,8 @@ class ShadowboxMesh:
         ...     print(f"Layer {layer.layer_index}: {len(layer.vertices)} vertices")
     """
 
-    layers: List[LayerMesh]
-    frame: Optional[FrameMesh]
+    layers: list[LayerMesh]
+    frame: FrameMesh | None
     bounds: tuple
 
     @property
@@ -199,7 +198,10 @@ class MeshGenerator:
             # レイヤー補間（すべてのレイヤーで次のレイヤーまで補間）
             if interp_count > 0:
                 z_start = z
-                next_z = layer_z_positions[i + 1] + pop_out_offset if i + 1 < num_layers else back_z + pop_out_offset
+                if i + 1 < num_layers:
+                    next_z = layer_z_positions[i + 1] + pop_out_offset
+                else:
+                    next_z = back_z + pop_out_offset
                 z_end = next_z
 
                 # N個の補間レイヤーを追加
@@ -542,8 +544,8 @@ class MeshGenerator:
 
     def _calculate_bounds(
         self,
-        layers: List[LayerMesh],
-        frame: Optional[FrameMesh],
+        layers: list[LayerMesh],
+        frame: FrameMesh | None,
     ) -> tuple:
         """全メッシュのバウンディングボックスを計算。
 

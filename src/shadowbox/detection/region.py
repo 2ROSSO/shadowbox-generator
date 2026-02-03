@@ -5,7 +5,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -87,7 +86,7 @@ class RegionDetector:
         height, width = cv_image.shape[:2]
 
         # 複数の検出手法を試行し、最も良い結果を返す
-        results: List[DetectionResult] = []
+        results: list[DetectionResult] = []
 
         # 方法1: エッジベースの検出
         edge_result = self._detect_by_edges(cv_image)
@@ -162,7 +161,7 @@ class RegionDetector:
         self,
         image: Image.Image,
         max_candidates: int = 5,
-    ) -> List[DetectionResult]:
+    ) -> list[DetectionResult]:
         """複数の候補領域を検出。
 
         Args:
@@ -180,7 +179,7 @@ class RegionDetector:
         cv_image = self._pil_to_cv(image)
         height, width = cv_image.shape[:2]
 
-        results: List[DetectionResult] = []
+        results: list[DetectionResult] = []
 
         # エッジベースの候補
         edge_result = self._detect_by_edges(cv_image)
@@ -257,7 +256,7 @@ class RegionDetector:
     def _detect_by_edges(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """エッジ検出ベースの領域検出。
 
         Args:
@@ -290,7 +289,7 @@ class RegionDetector:
         )
 
         # 面積条件を満たす矩形を探す
-        valid_rects: List[Tuple[int, int, int, int, float]] = []
+        valid_rects: list[tuple[int, int, int, int, float]] = []
 
         for contour in contours:
             # 矩形近似
@@ -325,7 +324,7 @@ class RegionDetector:
     def _detect_by_hsv_threshold(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """色差ベースの領域検出。
 
         カードの枠（通常は暗い色）とイラスト部分の色差を利用。
@@ -362,7 +361,7 @@ class RegionDetector:
             cv2.CHAIN_APPROX_SIMPLE,
         )
 
-        valid_rects: List[Tuple[int, int, int, int, float]] = []
+        valid_rects: list[tuple[int, int, int, int, float]] = []
 
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
@@ -379,7 +378,9 @@ class RegionDetector:
                     # 中央に近いほど高い信頼度
                     center_x = x + w / 2
                     center_y = y + h / 2
-                    center_dist = abs(center_x - width / 2) / width + abs(center_y - height / 2) / height
+                    dx = abs(center_x - width / 2) / width
+                    dy = abs(center_y - height / 2) / height
+                    center_dist = dx + dy
                     center_bonus = max(0, 1 - center_dist)
                     confidence = rectangularity * 0.5 + center_bonus * 0.5
                     valid_rects.append((x, y, w, h, confidence))
@@ -399,7 +400,7 @@ class RegionDetector:
     def _detect_by_grid_scoring(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """彩度・複雑度ベースの領域検出。
 
         イラスト領域は通常:
@@ -540,7 +541,7 @@ class RegionDetector:
     def _detect_by_boundary_contrast(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """境界コントラストベースの領域検出。
 
         イラスト内部の複雑度が高く、境界（枠）が単色であることを利用。
@@ -703,7 +704,7 @@ class RegionDetector:
     def _detect_by_frame_analysis(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """フレーム解析ベースの領域検出（外→内アプローチ）。
 
         画像の端からフレーム色をサンプリングし、
@@ -925,7 +926,7 @@ class RegionDetector:
     def _detect_by_band_complexity(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """水平帯の複雑度分析ベースの領域検出。
 
         画像を水平方向に分割し、各帯の「イラストらしさ」を計算。
@@ -1051,7 +1052,7 @@ class RegionDetector:
     def _detect_by_horizontal_lines(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """水平線検出ベースの領域検出（Hough Transform）。
 
         カードの区切り線（タイトル下、テキスト領域上）を検出して
@@ -1110,7 +1111,7 @@ class RegionDetector:
             return None
 
         # 4. y座標でソートし、境界線候補を特定
-        horizontal_lines.sort(key=lambda l: l[0])
+        horizontal_lines.sort(key=lambda line: line[0])
 
         # 画像を3つの領域に分ける（上部、中央、下部）
         upper_region = int(height * 0.35)  # 上部35%（タイトル領域）
@@ -1118,14 +1119,14 @@ class RegionDetector:
 
         # 上部境界線候補（タイトルとイラストの境界）
         upper_candidates = [
-            l for l in horizontal_lines
-            if height * 0.08 < l[0] < upper_region
+            line for line in horizontal_lines
+            if height * 0.08 < line[0] < upper_region
         ]
 
         # 下部境界線候補（イラストとテキストの境界）
         lower_candidates = [
-            l for l in horizontal_lines
-            if lower_region < l[0] < height * 0.85
+            line for line in horizontal_lines
+            if lower_region < line[0] < height * 0.85
         ]
 
         # 5. 最も長い線を境界として選択
@@ -1134,12 +1135,12 @@ class RegionDetector:
 
         if upper_candidates:
             # 最も長い上部境界線
-            best_upper = max(upper_candidates, key=lambda l: l[1])
+            best_upper = max(upper_candidates, key=lambda line: line[1])
             top_y = best_upper[0]
 
         if lower_candidates:
             # 最も長い下部境界線
-            best_lower = max(lower_candidates, key=lambda l: l[1])
+            best_lower = max(lower_candidates, key=lambda line: line[1])
             bottom_y = best_lower[0]
 
         # フォールバック: 境界線が見つからない場合はデフォルト値を使用
@@ -1158,7 +1159,7 @@ class RegionDetector:
         right_x = int(width * 0.95)  # デフォルト: 95%
 
         # 検出された水平線の端点を考慮
-        for y, length, x1, x2 in horizontal_lines:
+        for y, _length, x1, x2 in horizontal_lines:
             if top_y <= y <= bottom_y:
                 left_x = max(left_x, min(x1, x2))
                 right_x = min(right_x, max(x1, x2))
@@ -1197,7 +1198,7 @@ class RegionDetector:
         self,
         cv_image: NDArray[np.uint8],
         full_width: int,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """水平方向の境界を複雑度ベースで決定。
 
         Args:
@@ -1260,7 +1261,7 @@ class RegionDetector:
     def _get_horizontal_lines(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> List[Tuple[int, float, int, int]]:
+    ) -> list[tuple[int, float, int, int]]:
         """水平線のリストを取得。
 
         Args:
@@ -1311,14 +1312,14 @@ class RegionDetector:
                 horizontal_lines.append((y_mid, length, min(x1, x2), max(x1, x2)))
 
         # y座標でソート
-        horizontal_lines.sort(key=lambda l: l[0])
+        horizontal_lines.sort(key=lambda line: line[0])
         return horizontal_lines
 
     def _get_band_scores(
         self,
         cv_image: NDArray[np.uint8],
         num_bands: int = 20,
-    ) -> List[float]:
+    ) -> list[float]:
         """各水平帯の複雑度スコアを取得。
 
         Args:
@@ -1368,7 +1369,7 @@ class RegionDetector:
         cv_image: NDArray[np.uint8],
         y1: int,
         y2: int,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """指定y範囲内でフレーム色から左右境界を検出。
 
         Args:
@@ -1424,7 +1425,7 @@ class RegionDetector:
     def _detect_by_center_expansion(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """中央拡張による領域検出。
 
         画像の中央から外側へ広げていき、
@@ -1517,7 +1518,7 @@ class RegionDetector:
         self,
         cv_image: NDArray[np.uint8],
         num_bands: int = 16,
-    ) -> List[float]:
+    ) -> list[float]:
         """各垂直帯の複雑度スコアを取得。
 
         Args:
@@ -1564,7 +1565,7 @@ class RegionDetector:
 
     def _find_complexity_drop(
         self,
-        scores: List[float],
+        scores: list[float],
         start_idx: int,
         direction: str,
     ) -> int:
@@ -1613,7 +1614,7 @@ class RegionDetector:
     def _detect_by_gradient_richness(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """勾配の豊かさによる領域検出。
 
         モノクロ画像の隣接画素間の微分を計算し、
@@ -1758,7 +1759,7 @@ class RegionDetector:
     def _detect_by_contours(
         self,
         cv_image: NDArray[np.uint8],
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """輪郭ベースの領域検出。
 
         Args:
@@ -1774,7 +1775,7 @@ class RegionDetector:
         self,
         cv_image: NDArray[np.uint8],
         max_count: int = 5,
-    ) -> List[DetectionResult]:
+    ) -> list[DetectionResult]:
         """輪郭ベースで複数の候補を検出。
 
         Args:
@@ -1807,7 +1808,7 @@ class RegionDetector:
             cv2.CHAIN_APPROX_SIMPLE,
         )
 
-        results: List[DetectionResult] = []
+        results: list[DetectionResult] = []
 
         for contour in contours:
             # 輪郭を多角形近似

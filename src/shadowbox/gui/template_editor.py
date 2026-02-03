@@ -4,7 +4,6 @@
 インタラクティブにイラスト領域を選択するGUIを提供します。
 """
 
-from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,16 +31,16 @@ class TemplateEditor:
 
     def __init__(self) -> None:
         """エディタを初期化。"""
-        self._image: Optional[Image.Image] = None
-        self._selected_bbox: Optional[BoundingBox] = None
-        self._fig: Optional[plt.Figure] = None
-        self._ax: Optional[plt.Axes] = None
-        self._current_rect: Optional[Rectangle] = None
+        self._image: Image.Image | None = None
+        self._selected_bbox: BoundingBox | None = None
+        self._fig: plt.Figure | None = None
+        self._ax: plt.Axes | None = None
+        self._current_rect: Rectangle | None = None
         self._click_points: list = []
-        self._temp_marker: Optional[any] = None
+        self._temp_marker: any | None = None
 
     @property
-    def selected_bbox(self) -> Optional[BoundingBox]:
+    def selected_bbox(self) -> BoundingBox | None:
         """選択されたバウンディングボックス。"""
         return self._selected_bbox
 
@@ -49,8 +48,8 @@ class TemplateEditor:
         self,
         image: Image.Image,
         title: str = "イラスト領域を選択",
-        initial_bbox: Optional[BoundingBox] = None,
-    ) -> Optional[BoundingBox]:
+        initial_bbox: BoundingBox | None = None,
+    ) -> BoundingBox | None:
         """画像上で領域を選択。
 
         matplotlibのウィンドウが開き、ユーザーが2点クリックで
@@ -85,13 +84,8 @@ class TemplateEditor:
             self._draw_rect(initial_bbox)
 
         # 操作説明を追加
-        self._fig.text(
-            0.5,
-            0.02,
-            "左クリック2回で矩形を指定（左上→右下） | 右クリックでリセット | ウィンドウを閉じて確定",
-            ha="center",
-            fontsize=10,
-        )
+        help_text = "左クリック2回で矩形を指定（左上→右下） | 右クリック:リセット | 閉じて確定"
+        self._fig.text(0.5, 0.02, help_text, ha="center", fontsize=10)
 
         # クリックイベントを設定
         self._fig.canvas.mpl_connect("button_press_event", self._on_click)
@@ -234,7 +228,7 @@ class QuickRegionSelector:
     def select(
         image: Image.Image,
         title: str = "領域を選択",
-    ) -> Optional[BoundingBox]:
+    ) -> BoundingBox | None:
         """画像上で領域を選択。
 
         Args:
@@ -254,7 +248,7 @@ class QuickRegionSelector:
     def select_with_preview(
         image: Image.Image,
         title: str = "領域を選択",
-    ) -> Tuple[Optional[BoundingBox], Optional[Image.Image]]:
+    ) -> tuple[BoundingBox | None, Image.Image | None]:
         """領域を選択し、切り抜きプレビューも返す。
 
         Args:
@@ -279,7 +273,7 @@ class QuickRegionSelector:
         return bbox, cropped
 
 
-def select_illustration_region(image: Image.Image) -> Optional[BoundingBox]:
+def select_illustration_region(image: Image.Image) -> BoundingBox | None:
     """イラスト領域を手動選択するユーティリティ関数。
 
     Args:
@@ -316,13 +310,13 @@ class JupyterRegionSelector:
             image: 選択対象の画像。
         """
         self._image = image
-        self._selected_bbox: Optional[BoundingBox] = None
+        self._selected_bbox: BoundingBox | None = None
         self._click_points: list = []
-        self._fig: Optional[plt.Figure] = None
-        self._ax: Optional[plt.Axes] = None
-        self._temp_marker: Optional[any] = None
-        self._current_rect: Optional[Rectangle] = None
-        self._status_text: Optional[any] = None
+        self._fig: plt.Figure | None = None
+        self._ax: plt.Axes | None = None
+        self._temp_marker: any | None = None
+        self._current_rect: Rectangle | None = None
+        self._status_text: any | None = None
 
     def show(self) -> None:
         """選択UIを表示。
@@ -431,7 +425,7 @@ class JupyterRegionSelector:
         self._ax.add_patch(self._current_rect)
         self._fig.canvas.draw_idle()
 
-    def get_bbox(self) -> Optional[BoundingBox]:
+    def get_bbox(self) -> BoundingBox | None:
         """選択された領域を取得。
 
         Returns:
@@ -439,7 +433,7 @@ class JupyterRegionSelector:
         """
         return self._selected_bbox
 
-    def get_cropped(self) -> Optional[Image.Image]:
+    def get_cropped(self) -> Image.Image | None:
         """選択領域で切り抜いた画像を取得。
 
         Returns:

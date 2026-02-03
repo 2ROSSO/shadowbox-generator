@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -111,7 +110,7 @@ class CardTemplate:
     card_width: int
     card_height: int
     frame_margin: int = 10
-    description: Optional[str] = None
+    description: str | None = None
 
     def __post_init__(self) -> None:
         """初期化後のバリデーション。

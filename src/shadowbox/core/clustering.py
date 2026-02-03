@@ -6,7 +6,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Protocol, Tuple
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -38,7 +38,7 @@ class LayerClustererProtocol(Protocol):
         self,
         depth_map: NDArray[np.float32],
         k: int,
-    ) -> Tuple[NDArray[np.int32], NDArray[np.float32]]:
+    ) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
         """深度マップをk個のレイヤーにクラスタリング。
 
         Args:
@@ -210,7 +210,7 @@ class KMeansLayerClusterer:
         self,
         depth_map: NDArray[np.float32],
         k: int,
-    ) -> Tuple[NDArray[np.int32], NDArray[np.float32]]:
+    ) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
         """深度マップをk個のレイヤーにクラスタリング。
 
         Args:

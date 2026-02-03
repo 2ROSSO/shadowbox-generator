@@ -4,23 +4,21 @@
 可視化する機能を提供します。
 """
 
-from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.colorbar import Colorbar
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
 
 def create_depth_heatmap(
     depth_map: NDArray[np.float32],
-    original_image: Optional[NDArray[np.uint8]] = None,
+    original_image: NDArray[np.uint8] | None = None,
     cmap: str = "viridis",
-    figsize: Tuple[int, int] = (12, 5),
-    title: Optional[str] = None,
-) -> Tuple[Figure, Axes]:
+    figsize: tuple[int, int] = (12, 5),
+    title: str | None = None,
+) -> tuple[Figure, Axes]:
     """深度マップをヒートマップとして可視化。
 
     オリジナル画像が指定された場合は、元画像と深度マップを
@@ -85,8 +83,8 @@ def create_depth_overlay(
     depth_map: NDArray[np.float32],
     alpha: float = 0.5,
     cmap: str = "viridis",
-    figsize: Tuple[int, int] = (8, 6),
-) -> Tuple[Figure, Axes]:
+    figsize: tuple[int, int] = (8, 6),
+) -> tuple[Figure, Axes]:
     """深度マップを元画像に重ねて表示。
 
     元画像の上に深度マップを半透明で重ねて表示します。
@@ -124,8 +122,8 @@ def create_depth_overlay(
 def create_depth_histogram(
     depth_map: NDArray[np.float32],
     bins: int = 50,
-    figsize: Tuple[int, int] = (10, 4),
-) -> Tuple[Figure, Axes]:
+    figsize: tuple[int, int] = (10, 4),
+) -> tuple[Figure, Axes]:
     """深度値のヒストグラムを作成。
 
     深度マップの深度値分布を可視化します。
@@ -168,7 +166,7 @@ def create_depth_histogram(
         transform=ax.transAxes,
         verticalalignment="top",
         horizontalalignment="right",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
     )
 
     fig.tight_layout()
@@ -178,9 +176,9 @@ def create_depth_histogram(
 def create_depth_contour(
     depth_map: NDArray[np.float32],
     levels: int = 10,
-    original_image: Optional[NDArray[np.uint8]] = None,
-    figsize: Tuple[int, int] = (8, 6),
-) -> Tuple[Figure, Axes]:
+    original_image: NDArray[np.uint8] | None = None,
+    figsize: tuple[int, int] = (8, 6),
+) -> tuple[Figure, Axes]:
     """深度マップの等高線図を作成。
 
     深度マップを等高線で可視化します。オリジナル画像が
@@ -206,7 +204,8 @@ def create_depth_contour(
         ax.imshow(original_image)
 
     # 等高線を描画
-    contour = ax.contour(depth_map, levels=levels, colors="white" if original_image is not None else None)
+    contour_colors = "white" if original_image is not None else None
+    contour = ax.contour(depth_map, levels=levels, colors=contour_colors)
     ax.clabel(contour, inline=True, fontsize=8, fmt="%.2f")
 
     if original_image is None:

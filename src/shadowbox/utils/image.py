@@ -6,7 +6,6 @@
 
 from io import BytesIO
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import requests
@@ -14,7 +13,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 
-def load_image(source: Union[str, Path, Image.Image]) -> Image.Image:
+def load_image(source: str | Path | Image.Image) -> Image.Image:
     """様々なソースから画像を読み込む。
 
     ファイルパス、URL、またはPIL Imageから画像を読み込みます。
@@ -66,7 +65,7 @@ def load_image(source: Union[str, Path, Image.Image]) -> Image.Image:
     )
 
 
-def load_image_from_file(file_path: Union[str, Path]) -> Image.Image:
+def load_image_from_file(file_path: str | Path) -> Image.Image:
     """ファイルから画像を読み込む。
 
     Args:

@@ -5,10 +5,8 @@
 """
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
-import numpy as np
 from PIL import Image
 
 from shadowbox.utils.image import load_image, load_image_from_url
@@ -35,7 +33,7 @@ class ImageSelector:
 
     def __init__(
         self,
-        directory: Union[str, Path],
+        directory: str | Path,
         recursive: bool = False,
     ) -> None:
         """セレクタを初期化。
@@ -46,9 +44,9 @@ class ImageSelector:
         """
         self._directory = Path(directory)
         self._recursive = recursive
-        self._image_paths: List[Path] = []
-        self._images: List[Image.Image] = []
-        self._thumbnails: List[Image.Image] = []
+        self._image_paths: list[Path] = []
+        self._images: list[Image.Image] = []
+        self._thumbnails: list[Image.Image] = []
 
         self._scan_directory()
 
@@ -63,7 +61,7 @@ class ImageSelector:
         return len(self._image_paths)
 
     @property
-    def image_paths(self) -> List[Path]:
+    def image_paths(self) -> list[Path]:
         """画像ファイルパスのリスト。"""
         return self._image_paths.copy()
 
@@ -88,8 +86,8 @@ class ImageSelector:
     def show_gallery(
         self,
         columns: int = 4,
-        thumbnail_size: Tuple[int, int] = (150, 150),
-        figsize: Optional[Tuple[int, int]] = None,
+        thumbnail_size: tuple[int, int] = (150, 150),
+        figsize: tuple[int, int] | None = None,
     ) -> None:
         """画像をギャラリー形式で表示。
 
@@ -115,7 +113,7 @@ class ImageSelector:
 
         fig, axes = plt.subplots(rows, columns, figsize=figsize, squeeze=False)
 
-        for idx, (thumb, path) in enumerate(zip(self._thumbnails, self._image_paths)):
+        for idx, (thumb, path) in enumerate(zip(self._thumbnails, self._image_paths, strict=True)):
             row = idx // columns
             col = idx % columns
             ax = axes[row, col]
@@ -140,12 +138,12 @@ class ImageSelector:
     def display_grid(
         self,
         columns: int = 4,
-        thumbnail_size: Tuple[int, int] = (150, 150),
+        thumbnail_size: tuple[int, int] = (150, 150),
     ) -> None:
         """show_galleryのエイリアス。"""
         self.show_gallery(columns, thumbnail_size)
 
-    def _generate_thumbnails(self, size: Tuple[int, int]) -> None:
+    def _generate_thumbnails(self, size: tuple[int, int]) -> None:
         """サムネイルを生成。
 
         Args:
@@ -206,7 +204,7 @@ class ImageSelector:
 
         return self._image_paths[index]
 
-    def list_images(self) -> List[str]:
+    def list_images(self) -> list[str]:
         """画像ファイル名のリストを取得。
 
         Returns:
@@ -266,7 +264,7 @@ class URLImageLoader:
         return load_image_from_url(url, timeout)
 
     @staticmethod
-    def load_multiple(urls: List[str], timeout: int = 30) -> List[Image.Image]:
+    def load_multiple(urls: list[str], timeout: int = 30) -> list[Image.Image]:
         """複数のURLから画像を読み込む。
 
         Args:
@@ -290,7 +288,7 @@ class URLImageLoader:
         return images
 
 
-def create_image_selector(directory: Union[str, Path]) -> ImageSelector:
+def create_image_selector(directory: str | Path) -> ImageSelector:
     """画像セレクタを作成するユーティリティ関数。
 
     Args:

@@ -5,7 +5,6 @@
 """
 
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 
@@ -14,7 +13,7 @@ from shadowbox.core.mesh import ShadowboxMesh
 
 def export_to_stl(
     mesh: ShadowboxMesh,
-    filepath: Union[str, Path],
+    filepath: str | Path,
     binary: bool = True,
 ) -> None:
     """メッシュをSTL形式でエクスポート。
@@ -68,7 +67,7 @@ def export_to_stl(
 
 def export_to_obj(
     mesh: ShadowboxMesh,
-    filepath: Union[str, Path],
+    filepath: str | Path,
     include_colors: bool = True,
     point_size: float = 0.008,
 ) -> None:
@@ -108,7 +107,7 @@ def export_to_obj(
 
         if layer.faces is not None:
             # 三角形メッシュを直接出力（TripoSR等）
-            for v, c in zip(layer.vertices, layer.colors):
+            for v, c in zip(layer.vertices, layer.colors, strict=True):
                 if include_colors:
                     r, g, b = c[0] / 255.0, c[1] / 255.0, c[2] / 255.0
                     color_str = f" {r:.4f} {g:.4f} {b:.4f}"
@@ -126,7 +125,7 @@ def export_to_obj(
             total_faces += len(layer.faces)
         else:
             # 各ポイントを4頂点の四角形として出力
-            for v, c in zip(layer.vertices, layer.colors):
+            for v, c in zip(layer.vertices, layer.colors, strict=True):
                 if include_colors:
                     r, g, b = c[0] / 255.0, c[1] / 255.0, c[2] / 255.0
                     color_str = f" {r:.4f} {g:.4f} {b:.4f}"
@@ -184,7 +183,7 @@ def export_to_obj(
 
 def export_to_ply(
     mesh: ShadowboxMesh,
-    filepath: Union[str, Path],
+    filepath: str | Path,
     point_size: float = 0.008,
 ) -> None:
     """メッシュをPLY形式でエクスポート。
@@ -228,7 +227,7 @@ def export_to_ply(
             vertex_offset += len(layer.vertices)
         else:
             # ポイントを四角形に展開（従来のシャドーボックス）
-            for v, c in zip(layer.vertices, layer.colors):
+            for v, c in zip(layer.vertices, layer.colors, strict=True):
                 # 四角形の4頂点
                 all_vertices.append([v[0] - half, v[1] - half, v[2]])
                 all_vertices.append([v[0] + half, v[1] - half, v[2]])
@@ -284,7 +283,7 @@ def export_to_ply(
     ]
 
     # 頂点データ
-    for v, c in zip(all_vertices, all_colors):
+    for v, c in zip(all_vertices, all_colors, strict=True):
         lines.append(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])}")
 
     # 面データ
@@ -421,14 +420,15 @@ def _write_ascii_ply(
     """ASCII PLYを書き込み。"""
     lines = header.copy()
 
-    for v, c in zip(vertices, colors):
+    for v, c in zip(vertices, colors, strict=True):
         lines.append(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])}")
 
     # フレームの面
     if frame is not None:
         for face in frame.faces:
             # フレーム頂点のオフセットを加算
-            f0, f1, f2 = face[0] + point_vertex_count, face[1] + point_vertex_count, face[2] + point_vertex_count
+            offset = point_vertex_count
+            f0, f1, f2 = face[0] + offset, face[1] + offset, face[2] + offset
             lines.append(f"3 {f0} {f1} {f2}")
 
     with open(filepath, "w", encoding="utf-8") as f:
@@ -450,7 +450,7 @@ def _write_binary_ply(
         f.write(("\n".join(header) + "\n").encode("utf-8"))
 
         # 頂点データ
-        for v, c in zip(vertices, colors):
+        for v, c in zip(vertices, colors, strict=True):
             f.write(struct.pack("<3f3B", v[0], v[1], v[2], int(c[0]), int(c[1]), int(c[2])))
 
         # フレームの面

@@ -7,16 +7,21 @@
     python -m shadowbox.gui.app
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
 
+if TYPE_CHECKING:
+    from shadowbox.config.template import BoundingBox
+
 try:
     from PyQt6.QtCore import Qt, QThread, pyqtSignal
-    from PyQt6.QtGui import QImage, QPixmap, QAction
+    from PyQt6.QtGui import QAction, QImage, QPixmap
     from PyQt6.QtWidgets import (
         QApplication,
         QFileDialog,
@@ -25,13 +30,13 @@ try:
         QLabel,
         QMainWindow,
         QMessageBox,
+        QProgressBar,
         QPushButton,
         QSlider,
         QSpinBox,
         QStatusBar,
         QVBoxLayout,
         QWidget,
-        QProgressBar,
     )
     PYQT_AVAILABLE = True
 except ImportError:
@@ -50,7 +55,7 @@ class ProcessingThread(QThread):
         image: Image.Image,
         k: int,
         use_mock: bool,
-        bbox: Optional["BoundingBox"] = None,
+        bbox: BoundingBox | None = None,
     ):
         super().__init__()
         self._image = image
@@ -96,9 +101,9 @@ class ShadowboxApp(QMainWindow):
         """アプリケーションを初期化。"""
         super().__init__()
 
-        self._image: Optional[Image.Image] = None
+        self._image: Image.Image | None = None
         self._result = None
-        self._bbox: Optional["BoundingBox"] = None
+        self._bbox: BoundingBox | None = None
 
         self._init_ui()
 
@@ -329,7 +334,7 @@ class ShadowboxApp(QMainWindow):
             return
 
         try:
-            from shadowbox.visualization import render_shadowbox, RenderOptions
+            from shadowbox.visualization import RenderOptions, render_shadowbox
 
             options = RenderOptions(
                 point_size=float(self._point_slider.value()),

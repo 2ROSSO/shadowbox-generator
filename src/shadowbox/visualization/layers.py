@@ -4,7 +4,6 @@
 可視化する機能を提供します。
 """
 
-from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,9 +16,9 @@ def create_layer_preview(
     image: NDArray[np.uint8],
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Optional[Tuple[int, int]] = None,
+    figsize: tuple[int, int] | None = None,
     columns: int = 4,
-) -> Tuple[Figure, NDArray[Axes]]:
+) -> tuple[Figure, NDArray[Axes]]:
     """各レイヤーの画像プレビューを作成。
 
     クラスタリング結果の各レイヤーに属するピクセルのみを
@@ -85,9 +84,9 @@ def create_layer_preview(
 def create_layer_mask_preview(
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Optional[Tuple[int, int]] = None,
+    figsize: tuple[int, int] | None = None,
     columns: int = 4,
-) -> Tuple[Figure, NDArray[Axes]]:
+) -> tuple[Figure, NDArray[Axes]]:
     """各レイヤーのマスクプレビューを作成。
 
     各レイヤーに属するピクセルの位置を白黒マスクとして
@@ -148,9 +147,9 @@ def create_labeled_image(
     image: NDArray[np.uint8],
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Tuple[int, int] = (10, 8),
+    figsize: tuple[int, int] = (10, 8),
     alpha: float = 0.4,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """レイヤーラベルを色分けして元画像に重ねて表示。
 
     各レイヤーを異なる色で塗り分け、元画像に半透明で
@@ -203,8 +202,8 @@ def create_depth_layer_comparison(
     depth_map: NDArray[np.float32],
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Tuple[int, int] = (14, 5),
-) -> Tuple[Figure, Axes]:
+    figsize: tuple[int, int] = (14, 5),
+) -> tuple[Figure, Axes]:
     """深度マップとレイヤー分類の比較表示。
 
     元の深度マップと、クラスタリングによる離散化された
@@ -261,9 +260,9 @@ def create_stacked_layer_view(
     image: NDArray[np.uint8],
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Tuple[int, int] = (12, 8),
+    figsize: tuple[int, int] = (12, 8),
     offset: float = 0.1,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """レイヤーを疑似3D的に積み重ねた表示。
 
     各レイヤーを少しずつずらして重ねて表示することで、
@@ -323,8 +322,8 @@ def show_clustering_summary(
     depth_map: NDArray[np.float32],
     labels: NDArray[np.int32],
     centroids: NDArray[np.float32],
-    figsize: Tuple[int, int] = (16, 10),
-) -> Tuple[Figure, NDArray[Axes]]:
+    figsize: tuple[int, int] = (16, 10),
+) -> tuple[Figure, NDArray[Axes]]:
     """クラスタリング結果の総合サマリーを表示。
 
     元画像、深度マップ、レイヤー分類、各レイヤーのプレビューを
@@ -376,7 +375,7 @@ def show_clustering_summary(
     has_frame_label = -1 in labels
     num_colors = k + 1 if has_frame_label else k
     cmap = plt.colormaps.get_cmap("tab10").resampled(num_colors)
-    im3 = ax3.imshow(sorted_labels, cmap=cmap, vmin=0, vmax=num_colors - 1)
+    ax3.imshow(sorted_labels, cmap=cmap, vmin=0, vmax=num_colors - 1)
     title = f"レイヤー分類（k={k}）"
     if has_frame_label:
         title += " + フレーム"

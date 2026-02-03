@@ -4,13 +4,20 @@
 インタラクティブに3D表示する機能を提供します。
 """
 
-from dataclasses import dataclass, field
-from typing import List, Literal, Optional, Tuple
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
 from shadowbox.core.mesh import ShadowboxMesh
+
+if TYPE_CHECKING:
+    import vedo
+
+    from shadowbox.core.mesh import FrameMesh
 
 
 def _is_jupyter() -> bool:
@@ -57,12 +64,12 @@ class RenderOptions:
         render_mode: 描画モード ("points": ポイント, "mesh": メッシュ面)。
     """
 
-    background_color: Tuple[int, int, int] = (30, 30, 30)
+    background_color: tuple[int, int, int] = (30, 30, 30)
     point_size: float = 3.0
     mesh_size: float = 0.008
     show_axes: bool = False
     show_frame: bool = True
-    window_size: Tuple[int, int] = (1200, 800)
+    window_size: tuple[int, int] = (1200, 800)
     title: str = "Shadowbox 3D Viewer"
     interactive: bool = True
     layer_opacity: float = 1.0
@@ -84,7 +91,7 @@ class ShadowboxRenderer:
         >>> renderer.render(mesh)
     """
 
-    def __init__(self, options: Optional[RenderOptions] = None) -> None:
+    def __init__(self, options: RenderOptions | None = None) -> None:
         """レンダラーを初期化。
 
         Args:
@@ -97,7 +104,7 @@ class ShadowboxRenderer:
         self,
         mesh: ShadowboxMesh,
         show: bool = True,
-    ) -> "vedo.Plotter":
+    ) -> vedo.Plotter:
         """シャドーボックスメッシュを3Dレンダリング。
 
         Args:
@@ -171,7 +178,7 @@ class ShadowboxRenderer:
         self,
         mesh: ShadowboxMesh,
         gap_multiplier: float = 2.0,
-    ) -> "vedo.Plotter":
+    ) -> vedo.Plotter:
         """レイヤーを分離して表示。
 
         デバッグ用に、各レイヤーを本来の位置より離して
@@ -233,7 +240,7 @@ class ShadowboxRenderer:
         self,
         mesh: ShadowboxMesh,
         filename: str,
-        size: Optional[Tuple[int, int]] = None,
+        size: tuple[int, int] | None = None,
     ) -> None:
         """レンダリング結果をスクリーンショットとして保存。
 
@@ -286,7 +293,7 @@ class ShadowboxRenderer:
         if size:
             self._options.window_size = orig_size
 
-    def _create_frame_mesh(self, frame: "FrameMesh") -> Optional["vedo.Mesh"]:
+    def _create_frame_mesh(self, frame: FrameMesh) -> vedo.Mesh | None:
         """フレームメッシュをVedoメッシュに変換。
 
         Args:
@@ -310,8 +317,8 @@ class ShadowboxRenderer:
 
     def _normalize_color(
         self,
-        color: Tuple[int, int, int],
-    ) -> Tuple[float, float, float]:
+        color: tuple[int, int, int],
+    ) -> tuple[float, float, float]:
         """色を0-255から0-1の範囲に正規化。
 
         Args:
@@ -333,7 +340,7 @@ def _points_to_mesh_data(
     vertices: NDArray,
     colors: NDArray,
     size: float = 0.008,
-) -> Tuple[NDArray, NDArray, NDArray]:
+) -> tuple[NDArray, NDArray, NDArray]:
     """ポイントをメッシュデータ（四角形）に変換。
 
     Args:
@@ -352,7 +359,7 @@ def _points_to_mesh_data(
     face_colors = np.zeros((n * 2, 3), dtype=np.uint8)
     faces = np.zeros((n * 2, 3), dtype=np.int32)
 
-    for i, (v, c) in enumerate(zip(vertices, colors)):
+    for i, (v, c) in enumerate(zip(vertices, colors, strict=True)):
         base = i * 4
         # 四角形の4頂点
         mesh_vertices[base] = [v[0] - half, v[1] - half, v[2]]
@@ -372,7 +379,7 @@ def _points_to_mesh_data(
     return mesh_vertices, faces, face_colors
 
 
-def _render_with_plotly(mesh: ShadowboxMesh, options: Optional[RenderOptions] = None):
+def _render_with_plotly(mesh: ShadowboxMesh, options: RenderOptions | None = None):
     """Plotlyを使用してJupyter内でインタラクティブ3D表示。
 
     Args:
@@ -435,11 +442,11 @@ def _render_with_plotly(mesh: ShadowboxMesh, options: Optional[RenderOptions] = 
                 y=layer.vertices[:, 1],
                 z=layer.vertices[:, 2],
                 mode="markers",
-                marker=dict(
-                    size=opts.point_size,
-                    color=colors,
-                    opacity=opts.layer_opacity,
-                ),
+                marker={
+                    "size": opts.point_size,
+                    "color": colors,
+                    "opacity": opts.layer_opacity,
+                },
                 name=f"Layer {i}",
                 hoverinfo="skip",
             )
@@ -468,27 +475,33 @@ def _render_with_plotly(mesh: ShadowboxMesh, options: Optional[RenderOptions] = 
     bg_str = f"rgb({bg[0]},{bg[1]},{bg[2]})"
 
     fig = go.Figure(data=traces)
+    axis_config = {
+        "showbackground": False,
+        "showgrid": False,
+        "zeroline": False,
+        "visible": False,
+    }
     fig.update_layout(
         title=opts.title,
         width=opts.window_size[0],
         height=opts.window_size[1],
-        scene=dict(
-            xaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            zaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            bgcolor=bg_str,
-            aspectmode="data",
-        ),
+        scene={
+            "xaxis": axis_config,
+            "yaxis": axis_config,
+            "zaxis": axis_config,
+            "bgcolor": bg_str,
+            "aspectmode": "data",
+        },
         paper_bgcolor=bg_str,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin={"l": 0, "r": 0, "t": 40, "b": 0},
     )
 
     # カメラを正面やや斜めに設定
     fig.update_layout(
-        scene_camera=dict(
-            eye=dict(x=0, y=0, z=2),
-            up=dict(x=0, y=1, z=0),
-        )
+        scene_camera={
+            "eye": {"x": 0, "y": 0, "z": 2},
+            "up": {"x": 0, "y": 1, "z": 0},
+        }
     )
 
     return fig
@@ -496,8 +509,8 @@ def _render_with_plotly(mesh: ShadowboxMesh, options: Optional[RenderOptions] = 
 
 def render_shadowbox(
     mesh: ShadowboxMesh,
-    options: Optional[RenderOptions] = None,
-    render_mode: Optional[Literal["points", "mesh"]] = None,
+    options: RenderOptions | None = None,
+    render_mode: Literal["points", "mesh"] | None = None,
 ):
     """シャドーボックスを簡単にレンダリングするユーティリティ関数。
 
@@ -547,7 +560,7 @@ def render_shadowbox(
 def _render_layers_exploded_plotly(
     mesh: ShadowboxMesh,
     gap_multiplier: float = 2.5,
-    options: Optional[RenderOptions] = None,
+    options: RenderOptions | None = None,
 ):
     """Plotlyでレイヤー分離表示。
 
@@ -580,7 +593,7 @@ def _render_layers_exploded_plotly(
             y=vertices[:, 1],
             z=vertices[:, 2],
             mode="markers",
-            marker=dict(size=opts.point_size, color=colors, opacity=opts.layer_opacity),
+            marker={"size": opts.point_size, "color": colors, "opacity": opts.layer_opacity},
             name=f"Layer {i}",
             hoverinfo="skip",
         )
@@ -589,20 +602,26 @@ def _render_layers_exploded_plotly(
     bg = opts.background_color
     bg_str = f"rgb({bg[0]},{bg[1]},{bg[2]})"
 
+    axis_cfg = {
+        "showbackground": False,
+        "showgrid": False,
+        "zeroline": False,
+        "visible": False,
+    }
     fig = go.Figure(data=traces)
     fig.update_layout(
         title=f"{opts.title} (レイヤー分離表示)",
         width=opts.window_size[0],
         height=opts.window_size[1],
-        scene=dict(
-            xaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            zaxis=dict(showbackground=False, showgrid=False, zeroline=False, visible=False),
-            bgcolor=bg_str,
-            aspectmode="data",
-        ),
+        scene={
+            "xaxis": axis_cfg,
+            "yaxis": axis_cfg,
+            "zaxis": axis_cfg,
+            "bgcolor": bg_str,
+            "aspectmode": "data",
+        },
         paper_bgcolor=bg_str,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin={"l": 0, "r": 0, "t": 40, "b": 0},
     )
 
     return fig
@@ -611,7 +630,7 @@ def _render_layers_exploded_plotly(
 def render_layers_exploded(
     mesh: ShadowboxMesh,
     gap_multiplier: float = 2.5,
-    options: Optional[RenderOptions] = None,
+    options: RenderOptions | None = None,
 ):
     """レイヤーを分解して表示するユーティリティ関数。
 
