@@ -385,7 +385,7 @@ def create_pipeline(
     # TripoSRモードの場合
     if settings.model_mode == "triposr":
         from shadowbox.triposr import create_triposr_pipeline
-        return create_triposr_pipeline(settings.triposr)
+        return create_triposr_pipeline(settings.triposr, settings.render)
 
     # 深度推定モード（デフォルト）
     # 深度推定器を作成

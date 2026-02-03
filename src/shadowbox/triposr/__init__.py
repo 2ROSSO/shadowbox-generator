@@ -8,7 +8,12 @@ Note:
     pip install shadowbox[triposr]
 """
 
+from typing import TYPE_CHECKING, Optional
+
 from shadowbox.triposr.settings import TripoSRSettings
+
+if TYPE_CHECKING:
+    from shadowbox.config.settings import RenderSettings
 
 __all__ = ["TripoSRSettings", "create_triposr_generator", "create_triposr_pipeline"]
 
@@ -29,11 +34,15 @@ def create_triposr_generator(settings: TripoSRSettings):
     return TripoSRGenerator(settings)
 
 
-def create_triposr_pipeline(settings: TripoSRSettings):
+def create_triposr_pipeline(
+    settings: TripoSRSettings,
+    render_settings: Optional["RenderSettings"] = None,
+):
     """TripoSRパイプラインを作成。
 
     Args:
         settings: TripoSR設定。
+        render_settings: レンダリング設定（フレーム生成に使用）。
 
     Returns:
         TripoSRPipeline: 設定済みのパイプライン。
@@ -42,4 +51,4 @@ def create_triposr_pipeline(settings: TripoSRSettings):
         ImportError: TripoSR依存関係がインストールされていない場合。
     """
     from shadowbox.triposr.pipeline import TripoSRPipeline
-    return TripoSRPipeline(settings)
+    return TripoSRPipeline(settings, render_settings)
