@@ -158,6 +158,13 @@ class MeshGenerator:
         # フレームの存在確認（labels == -1 があるか）
         has_card_frame = np.any(labels == -1)
 
+        # フレームレイヤー（最前面、pop-outなし）
+        if has_card_frame:
+            frame_z = layer_z_positions[0]  # pop-outなし
+            frame_layer = self._create_frame_only_layer(image, labels, frame_z, -1)
+            if len(frame_layer.vertices) > 0:
+                layers.append(frame_layer)
+
         # フレーム補間（labels == -1 のピクセルのみ、最前面から最背面まで）
         # フレームは飛び出しなし
         if interp_count > 0 and has_card_frame:
@@ -169,7 +176,7 @@ class MeshGenerator:
                 if len(frame_layer.vertices) > 0:
                     layers.append(frame_layer)
 
-        # 各レイヤーを生成（イラストレイヤーは飛び出しオフセット適用）
+        # 各レイヤーを生成（イラストレイヤーは飛び出しオフセット適用、フレーム除外）
         for i in range(num_layers):
             z = layer_z_positions[i] + pop_out_offset  # 飛び出し
 
@@ -479,6 +486,7 @@ class MeshGenerator:
         """単一レイヤーのメッシュを作成。
 
         マスクされたピクセルのみを含むポイントクラウドを生成します。
+        フレームピクセル（labels == -1）は常に除外されます。
 
         Args:
             image: 元のRGB画像。shape (H, W, 3)。
@@ -493,21 +501,12 @@ class MeshGenerator:
         """
         if cumulative:
             # 累積マスク: このレイヤー以下のすべてのピクセル
-            # ただし、labels == -1（カードフレーム）は特別処理
-            if layer_index == 0:
-                # レイヤー0のみ: フレームピクセル(-1)を含む
-                mask = (labels <= layer_index) | (labels == -1)
-            else:
-                # レイヤー1以降: フレームピクセルは除外
-                mask = (labels <= layer_index) & (labels >= 0)
+            # フレーム(-1)は常に除外（別途フレームレイヤーとして作成）
+            mask = (labels <= layer_index) & (labels >= 0)
         else:
             # 穴あきモード: このレイヤーのピクセルのみ
-            if layer_index == 0:
-                # レイヤー0: フレームピクセル(-1)も含む
-                mask = (labels == layer_index) | (labels == -1)
-            else:
-                # レイヤー1以降: そのレイヤーのピクセルのみ
-                mask = labels == layer_index
+            # フレーム(-1)は除外
+            mask = labels == layer_index
 
         h, w = mask.shape
 
