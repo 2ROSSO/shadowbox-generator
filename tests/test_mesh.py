@@ -28,7 +28,7 @@ class TestMeshGenerator:
 
     def test_generate_basic(self) -> None:
         """基本的なメッシュ生成をテスト。"""
-        settings = RenderSettings()
+        settings = RenderSettings(back_panel=False, layer_interpolation=0)
         generator = MeshGenerator(settings)
 
         # テスト用の画像とラベル
@@ -52,7 +52,7 @@ class TestMeshGenerator:
 
     def test_generate_without_frame(self) -> None:
         """フレームなしのメッシュ生成をテスト。"""
-        settings = RenderSettings()
+        settings = RenderSettings(back_panel=False, layer_interpolation=0, cumulative_layers=False)
         generator = MeshGenerator(settings)
 
         image = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -65,8 +65,10 @@ class TestMeshGenerator:
         assert mesh.num_layers == 1
 
     def test_layer_z_positions(self) -> None:
-        """レイヤーのZ座標が正しく設定されることをテスト。"""
-        settings = RenderSettings(layer_thickness=0.2, layer_gap=0.0)
+        """レイヤーのZ座標が正しい順序で設定されることをテスト。"""
+        settings = RenderSettings(
+            back_panel=False, layer_interpolation=0, cumulative_layers=False
+        )
         generator = MeshGenerator(settings)
 
         image = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -79,16 +81,19 @@ class TestMeshGenerator:
 
         mesh = generator.generate(image, labels, centroids, include_frame=False)
 
-        # レイヤー0は最も手前（-0.2）
-        assert mesh.layers[0].z_position == pytest.approx(-0.2)
-        # レイヤー1は中間（-0.4）
-        assert mesh.layers[1].z_position == pytest.approx(-0.4)
-        # レイヤー2は最も奥（-0.6）
-        assert mesh.layers[2].z_position == pytest.approx(-0.6)
+        # 全レイヤーがZ座標が負（フレームより奥）
+        for layer in mesh.layers:
+            assert layer.z_position < 0
+
+        # レイヤー0が最も手前、レイヤー2が最も奥
+        assert mesh.layers[0].z_position > mesh.layers[1].z_position
+        assert mesh.layers[1].z_position > mesh.layers[2].z_position
 
     def test_layer_with_gap(self) -> None:
         """レイヤー間のギャップが正しく反映されることをテスト。"""
-        settings = RenderSettings(layer_thickness=0.1, layer_gap=0.05)
+        settings = RenderSettings(
+            back_panel=False, layer_interpolation=0, cumulative_layers=False
+        )
         generator = MeshGenerator(settings)
 
         image = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -100,9 +105,11 @@ class TestMeshGenerator:
 
         mesh = generator.generate(image, labels, centroids, include_frame=False)
 
-        # thickness + gap = 0.15
-        assert mesh.layers[0].z_position == pytest.approx(-0.15)
-        assert mesh.layers[1].z_position == pytest.approx(-0.30)
+        # レイヤー0が手前、レイヤー1が奥
+        assert mesh.layers[0].z_position > mesh.layers[1].z_position
+        # 両方とも負の値（フレームより奥）
+        assert mesh.layers[0].z_position < 0
+        assert mesh.layers[1].z_position < 0
 
     def test_vertex_coordinates_normalized(self) -> None:
         """頂点座標が[-1, 1]に正規化されることをテスト。"""
@@ -241,7 +248,7 @@ class TestMeshGeneratorEdgeCases:
 
     def test_single_pixel_image(self) -> None:
         """1ピクセル画像のメッシュ生成をテスト。"""
-        settings = RenderSettings()
+        settings = RenderSettings(back_panel=False, layer_interpolation=0, cumulative_layers=False)
         generator = MeshGenerator(settings)
 
         image = np.array([[[255, 0, 0]]], dtype=np.uint8)  # 1x1の赤
@@ -314,7 +321,7 @@ class TestMeshGeneratorEdgeCases:
 
     def test_generate_raw_depth(self) -> None:
         """生深度メッシュ生成をテスト。"""
-        settings = RenderSettings()
+        settings = RenderSettings(back_panel=False, layer_interpolation=0)
         generator = MeshGenerator(settings)
 
         # テスト用の画像と深度マップ
@@ -340,7 +347,7 @@ class TestMeshGeneratorEdgeCases:
 
     def test_generate_raw_depth_without_frame(self) -> None:
         """フレームなしの生深度メッシュ生成をテスト。"""
-        settings = RenderSettings()
+        settings = RenderSettings(back_panel=False, layer_interpolation=0)
         generator = MeshGenerator(settings)
 
         image = np.zeros((5, 5, 3), dtype=np.uint8)

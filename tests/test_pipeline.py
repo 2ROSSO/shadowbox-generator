@@ -68,7 +68,10 @@ class TestShadowboxPipeline:
 
     def test_process_with_specified_k(self, sample_image: Image.Image) -> None:
         """指定したレイヤー数での処理をテスト。"""
-        pipeline = create_pipeline(use_mock_depth=True)
+        settings = ShadowboxSettings()
+        settings.render.back_panel = False
+        settings.render.layer_interpolation = 0
+        pipeline = create_pipeline(settings, use_mock_depth=True)
 
         result = pipeline.process(sample_image, k=5)
 
@@ -171,7 +174,10 @@ class TestPipelineIntegration:
                 else:
                     pixels[x, y] = (0, 0, 255)    # 青（奥）
 
-        pipeline = create_pipeline(use_mock_depth=True)
+        settings = ShadowboxSettings()
+        settings.render.back_panel = False
+        settings.render.layer_interpolation = 0
+        pipeline = create_pipeline(settings, use_mock_depth=True)
         result = pipeline.process(image, k=3)
 
         # 3つのレイヤーが生成される
@@ -189,6 +195,8 @@ class TestPipelineIntegration:
         # 非累積モードで全体の頂点数を確認
         settings = ShadowboxSettings()
         settings.render.cumulative_layers = False
+        settings.render.back_panel = False
+        settings.render.layer_interpolation = 0
         pipeline = create_pipeline(settings, use_mock_depth=True)
         result = pipeline.process(image, k=2)
 
