@@ -150,6 +150,20 @@ class MeshGenerator:
         # 最背面のZ位置
         back_z = -num_layers * (self._settings.layer_thickness + self._settings.layer_gap)
 
+        # フレームの存在確認（labels == -1 があるか）
+        has_card_frame = np.any(labels == -1)
+
+        # フレーム補間（labels == -1 のピクセルのみ、最前面から最背面まで）
+        if interp_count > 0 and has_card_frame:
+            frame_z_start = layer_z_positions[0]  # レイヤー0と同じ位置から開始
+            for j in range(1, interp_count + 1):
+                t = j / (interp_count + 1)
+                interp_z = frame_z_start + (back_z - frame_z_start) * t
+                frame_layer = self._create_frame_only_layer(image, labels, interp_z, -1)
+                if len(frame_layer.vertices) > 0:
+                    layers.append(frame_layer)
+
+        # 各レイヤーを生成
         for i in range(num_layers):
             z = layer_z_positions[i]
 
@@ -159,16 +173,10 @@ class MeshGenerator:
             )
             layers.append(layer_mesh)
 
-            # レイヤー補間
+            # レイヤー補間（すべてのレイヤーで次のレイヤーまで補間）
             if interp_count > 0:
-                if i == 0:
-                    # レイヤー0（フレーム含む）: 最背面まで補間
-                    z_start = z
-                    z_end = back_z
-                else:
-                    # その他のレイヤー: 次のレイヤーまで補間
-                    z_start = z
-                    z_end = layer_z_positions[i + 1] if i + 1 < num_layers else back_z
+                z_start = z
+                z_end = layer_z_positions[i + 1] if i + 1 < num_layers else back_z
 
                 # N個の補間レイヤーを追加
                 for j in range(1, interp_count + 1):
@@ -380,6 +388,66 @@ class MeshGenerator:
 
         # 各頂点の色を取得
         colors = image.reshape(-1, 3).astype(np.uint8)
+
+        # ピクセルインデックスを保存
+        pixel_indices = np.stack([y_coords, x_coords], axis=1).astype(np.int32)
+
+        return LayerMesh(
+            vertices=vertices,
+            colors=colors,
+            z_position=z,
+            layer_index=layer_index,
+            pixel_indices=pixel_indices,
+        )
+
+    def _create_frame_only_layer(
+        self,
+        image: NDArray[np.uint8],
+        labels: NDArray[np.int32],
+        z: float,
+        layer_index: int,
+    ) -> LayerMesh:
+        """フレームピクセルのみのレイヤーを作成。
+
+        カードフレーム（labels == -1）のピクセルのみを含むレイヤーを生成します。
+        フレームの壁効果を作るための補間用。
+
+        Args:
+            image: 元のRGB画像。shape (H, W, 3)。
+            labels: 各ピクセルのレイヤーインデックス。shape (H, W)。
+            z: このレイヤーのZ座標。
+            layer_index: レイヤーインデックス。
+
+        Returns:
+            LayerMeshオブジェクト（フレームピクセルのみ）。
+        """
+        # フレームピクセルのみ（labels == -1）
+        mask = labels == -1
+
+        h, w = mask.shape
+
+        # マスクされたピクセルの座標を取得
+        y_coords, x_coords = np.where(mask)
+
+        if len(y_coords) == 0:
+            # 空のレイヤー
+            return LayerMesh(
+                vertices=np.array([], dtype=np.float32).reshape(0, 3),
+                colors=np.array([], dtype=np.uint8).reshape(0, 3),
+                z_position=z,
+                layer_index=layer_index,
+                pixel_indices=np.array([], dtype=np.int32).reshape(0, 2),
+            )
+
+        # 座標を[-1, 1]の範囲に正規化
+        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+        vertices_z = np.full_like(vertices_x, z)
+
+        vertices = np.stack([vertices_x, vertices_y, vertices_z], axis=1).astype(np.float32)
+
+        # 各頂点の色を取得
+        colors = image[y_coords, x_coords].astype(np.uint8)
 
         # ピクセルインデックスを保存
         pixel_indices = np.stack([y_coords, x_coords], axis=1).astype(np.int32)
