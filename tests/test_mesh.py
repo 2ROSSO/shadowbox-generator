@@ -359,3 +359,79 @@ class TestMeshGeneratorEdgeCases:
 
         assert mesh.frame is None
         assert mesh.num_layers == 1
+
+
+class TestNewFeatures:
+    """新機能（back_panel, layer_interpolation等）のテスト。"""
+
+    def test_back_panel_enabled(self) -> None:
+        """背面パネルが有効な場合、レイヤーが1つ追加されることをテスト。"""
+        settings = RenderSettings(back_panel=True, layer_interpolation=0, cumulative_layers=False)
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:5, :] = 0
+        labels[5:, :] = 1
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # 2レイヤー + 背面パネル = 3レイヤー
+        assert mesh.num_layers == 3
+
+    def test_back_panel_disabled(self) -> None:
+        """背面パネルが無効な場合のレイヤー数をテスト。"""
+        settings = RenderSettings(back_panel=False, layer_interpolation=0, cumulative_layers=False)
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:5, :] = 0
+        labels[5:, :] = 1
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # 2レイヤーのみ
+        assert mesh.num_layers == 2
+
+    def test_back_panel_is_at_back(self) -> None:
+        """背面パネルが最も奥に配置されることをテスト。"""
+        settings = RenderSettings(back_panel=True, layer_interpolation=0, cumulative_layers=False)
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        labels[:5, :] = 0
+        labels[5:, :] = 1
+        centroids = np.array([0.2, 0.8], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        # 最後のレイヤー（背面パネル）が最も奥
+        back_panel = mesh.layers[-1]
+        other_layers = mesh.layers[:-1]
+
+        for layer in other_layers:
+            assert layer.z_position >= back_panel.z_position
+
+    def test_frame_depth_setting(self) -> None:
+        """frame_depth設定が正しく適用されることをテスト。"""
+        settings = RenderSettings(
+            frame_depth=1.0,
+            back_panel=False,
+            layer_interpolation=0,
+            cumulative_layers=False,
+        )
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=True)
+
+        # フレームの深さ範囲内にレイヤーが配置される
+        min_z = min(layer.z_position for layer in mesh.layers)
+        assert min_z >= -settings.frame_depth
