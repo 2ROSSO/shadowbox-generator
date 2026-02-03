@@ -158,53 +158,77 @@ def export_to_obj(
 def export_to_ply(
     mesh: ShadowboxMesh,
     filepath: Union[str, Path],
-    binary: bool = False,
+    point_size: float = 0.008,
 ) -> None:
     """メッシュをPLY形式でエクスポート。
 
-    頂点カラー付きのポイントクラウドとしてエクスポートします。
-    MeshLabやCloudCompareで表示可能です。
+    各ポイントを小さな四角形（2三角形）としてエクスポートし、
+    Blender等の3Dソフトで表示可能にします。
 
     Args:
         mesh: エクスポートするShadowboxMesh。
         filepath: 出力ファイルパス。
-        binary: バイナリ形式で出力するかどうか。
+        point_size: 各ポイントを表す四角形のサイズ。
 
     Example:
         >>> export_to_ply(result.mesh, "shadowbox.ply")
     """
     filepath = Path(filepath)
+    half = point_size / 2
 
-    # 全頂点と色を収集
+    # 各ポイントを4頂点の四角形に展開
     all_vertices = []
     all_colors = []
+    all_faces = []
+    vertex_offset = 0
 
     for layer in mesh.layers:
-        if len(layer.vertices) > 0:
-            all_vertices.append(layer.vertices)
-            all_colors.append(layer.colors)
+        if len(layer.vertices) == 0:
+            continue
+
+        for v, c in zip(layer.vertices, layer.colors):
+            # 四角形の4頂点
+            all_vertices.append([v[0] - half, v[1] - half, v[2]])
+            all_vertices.append([v[0] + half, v[1] - half, v[2]])
+            all_vertices.append([v[0] + half, v[1] + half, v[2]])
+            all_vertices.append([v[0] - half, v[1] + half, v[2]])
+
+            # 4頂点に同じ色
+            for _ in range(4):
+                all_colors.append(c)
+
+            # 2つの三角形面
+            base = vertex_offset
+            all_faces.append([base, base + 1, base + 2])
+            all_faces.append([base, base + 2, base + 3])
+            vertex_offset += 4
 
     if not all_vertices:
         raise ValueError("メッシュに頂点がありません")
 
-    vertices = np.vstack(all_vertices)
-    colors = np.vstack(all_colors)
-
-    # フレーム頂点を追加
-    frame_vertex_count = 0
+    # フレーム頂点と面を追加
     if mesh.frame is not None:
         frame = mesh.frame
-        frame_colors = np.tile(frame.color, (len(frame.vertices), 1))
-        vertices = np.vstack([vertices, frame.vertices])
-        colors = np.vstack([colors, frame_colors])
-        frame_vertex_count = len(frame.vertices)
+        frame_base = vertex_offset
 
-    num_vertices = len(vertices)
+        for v in frame.vertices:
+            all_vertices.append([v[0], v[1], v[2]])
+            all_colors.append(frame.color)
 
-    # PLYヘッダー
-    header = [
+        for face in frame.faces:
+            all_faces.append([
+                face[0] + frame_base,
+                face[1] + frame_base,
+                face[2] + frame_base
+            ])
+
+    num_vertices = len(all_vertices)
+    num_faces = len(all_faces)
+
+    # PLYファイルを書き込み
+    lines = [
         "ply",
-        "format ascii 1.0" if not binary else "format binary_little_endian 1.0",
+        "format ascii 1.0",
         f"element vertex {num_vertices}",
         "property float x",
         "property float y",
@@ -212,20 +236,25 @@ def export_to_ply(
         "property uchar red",
         "property uchar green",
         "property uchar blue",
+        f"element face {num_faces}",
+        "property list uchar int vertex_indices",
+        "end_header",
     ]
 
-    # フレームの面を追加
-    if mesh.frame is not None:
-        num_faces = len(mesh.frame.faces)
-        header.append(f"element face {num_faces}")
-        header.append("property list uchar int vertex_indices")
+    # 頂点データ
+    for v, c in zip(all_vertices, all_colors):
+        lines.append(f"{v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {int(c[0])} {int(c[1])} {int(c[2])}")
 
-    header.append("end_header")
+    # 面データ
+    for face in all_faces:
+        lines.append(f"3 {face[0]} {face[1]} {face[2]}")
 
-    if binary:
-        _write_binary_ply(filepath, header, vertices, colors, mesh.frame)
-    else:
-        _write_ascii_ply(filepath, header, vertices, colors, mesh.frame, num_vertices - frame_vertex_count)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"PLYエクスポート完了: {filepath}")
+    print(f"  頂点数: {num_vertices}")
+    print(f"  面数: {num_faces}")
 
     print(f"PLYエクスポート完了: {filepath}")
     print(f"  頂点数: {num_vertices}")
