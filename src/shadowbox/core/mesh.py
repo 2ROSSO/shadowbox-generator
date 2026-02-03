@@ -169,11 +169,12 @@ class MeshGenerator:
                 layers.append(frame_layer)
 
         # フレーム補間（labels == -1 のピクセルのみ、最前面から最背面まで）
-        # フレームは飛び出しなし
+        # フレームは飛び出しなし、レイヤー数×補間数で等間隔に埋める
         if interp_count > 0 and has_card_frame:
             frame_z_start = layer_z_positions[0]  # レイヤー0と同じ位置から開始
-            for j in range(1, interp_count + 1):
-                t = j / (interp_count + 1)
+            frame_interp_count = num_layers * interp_count  # レイヤー数×補間数
+            for j in range(1, frame_interp_count + 1):
+                t = j / (frame_interp_count + 1)
                 interp_z = frame_z_start + (back_z - frame_z_start) * t
                 frame_layer = self._create_frame_only_layer(image, labels, interp_z, -1)
                 if len(frame_layer.vertices) > 0:
