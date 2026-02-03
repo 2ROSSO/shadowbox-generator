@@ -44,7 +44,8 @@ gui = [
 triposr = [
     "tsr>=0.0.3",      # TripoSR model
     "trimesh>=4.0.0",  # Mesh processing
-    "rembg>=2.0.0",    # Background removal (optional but recommended)
+    # Note: rembg is optional for background removal but has Python version conflicts
+    # Install separately if needed: pip install rembg
 ]
 all = [
     "shadowbox-generator[jupyter,gui,triposr]",
