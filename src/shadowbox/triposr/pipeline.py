@@ -192,10 +192,33 @@ class TripoSRPipeline:
             )
             cropped_array = image_to_array(resized)
 
+        # カードフレーム統合: 深度マップを元画像サイズに埋め込む
+        if include_card_frame and bbox is not None:
+            # 深度マップを bbox サイズにリサイズ
+            depth_uint8 = (depth_map * 255).astype(np.uint8)
+            depth_resized = np.array(
+                Image.fromarray(depth_uint8).resize(
+                    (bbox.width, bbox.height), Image.Resampling.LANCZOS
+                )
+            ).astype(np.float32) / 255.0
+
+            # 元画像サイズのゼロ深度マップを作成（フレーム部分は0.0=最前面）
+            full_h, full_w = original_array.shape[:2]
+            full_depth = np.zeros((full_h, full_w), dtype=np.float32)
+            full_depth[
+                bbox.y : bbox.y + bbox.height,
+                bbox.x : bbox.x + bbox.width,
+            ] = depth_resized
+
+            depth_map = full_depth
+            cropped_array = original_array
+
         # DepthToMeshProcessor に合流
         input_data = DepthToMeshInput(
             cropped_image=cropped_array,
             depth_map=depth_map,
+            original_image=original_array if include_card_frame else None,
+            bbox=bbox if include_card_frame else None,
         )
         mesh_result = self._depth_to_mesh.process(
             input_data,
