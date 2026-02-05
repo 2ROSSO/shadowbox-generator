@@ -246,6 +246,12 @@ class TripoSRGenerator:
             if scale > 0:
                 vertices = vertices / scale
 
+            # TripoSR座標系 → Shadowbox座標系の変換
+            # TripoSR: X=奥行き(カメラ方向), Y=右, Z=上
+            # Shadowbox: X=右, Y=上, Z=奥行き(正面)
+            # 変換: (x, y, z) → (y, z, x)
+            vertices = vertices[:, [1, 2, 0]]
+
         # バウンディングボックスを計算
         if len(vertices) > 0:
             min_coords = vertices.min(axis=0)
