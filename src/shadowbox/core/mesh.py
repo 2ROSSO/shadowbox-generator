@@ -8,11 +8,40 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
 from shadowbox.config.settings import RenderSettings
+
+
+class MeshGeneratorProtocol(Protocol):
+    """メッシュジェネレーターのプロトコル（DIインターフェース）。
+
+    このプロトコルを実装することで、異なるメッシュ生成アルゴリズムを
+    使用できます。テスト時のモック化や代替実装への差し替えが容易になります。
+    """
+
+    def generate(
+        self,
+        image: NDArray[np.uint8],
+        labels: NDArray[np.int32],
+        centroids: NDArray[np.float32],
+        include_frame: bool = True,
+    ) -> ShadowboxMesh:
+        """クラスタリング結果からシャドーボックスメッシュを生成。"""
+        ...
+
+    def generate_raw_depth(
+        self,
+        image: NDArray[np.uint8],
+        depth_map: NDArray[np.float32],
+        include_frame: bool = True,
+        depth_scale: float = 1.0,
+    ) -> ShadowboxMesh:
+        """生の深度マップから3Dメッシュを生成。"""
+        ...
 
 
 @dataclass

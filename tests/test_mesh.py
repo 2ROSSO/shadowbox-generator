@@ -12,6 +12,7 @@ from shadowbox.core.mesh import (
     FrameMesh,
     LayerMesh,
     MeshGenerator,
+    MeshGeneratorProtocol,
     ShadowboxMesh,
 )
 
@@ -435,3 +436,20 @@ class TestNewFeatures:
         # フレームの深さ範囲内にレイヤーが配置される
         min_z = min(layer.z_position for layer in mesh.layers)
         assert min_z >= -settings.frame_depth
+
+
+class TestMeshGeneratorProtocol:
+    """MeshGeneratorProtocolのテスト。"""
+
+    def test_mesh_generator_implements_protocol(self) -> None:
+        """MeshGeneratorがプロトコルを満たすことを確認。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        # プロトコルで定義されたメソッドを持っていることを確認
+        assert hasattr(generator, "generate")
+        assert hasattr(generator, "generate_raw_depth")
+
+        # 型チェックとしてプロトコル型に代入可能であることを確認
+        protocol_generator: MeshGeneratorProtocol = generator
+        assert protocol_generator is not None

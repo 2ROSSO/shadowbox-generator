@@ -12,7 +12,12 @@ import pytest
 from PIL import Image
 
 from shadowbox.config import BoundingBox, CardTemplate, ShadowboxSettings, YAMLConfigLoader
-from shadowbox.core.pipeline import PipelineResult, ShadowboxPipeline, create_pipeline
+from shadowbox.core.pipeline import (
+    BasePipelineResult,
+    PipelineResult,
+    ShadowboxPipeline,
+    create_pipeline,
+)
 
 
 class TestCreatePipeline:
@@ -216,3 +221,26 @@ class TestPipelineIntegration:
         for layer in result.mesh.layers:
             for vertex_color in layer.colors:
                 assert np.array_equal(vertex_color, expected_color)
+
+
+class TestBasePipelineResult:
+    """BasePipelineResultのテスト。"""
+
+    def test_pipeline_result_inherits_base(self) -> None:
+        """PipelineResultがBasePipelineResultを継承していることを確認。"""
+        assert issubclass(PipelineResult, BasePipelineResult)
+
+    def test_triposr_result_inherits_base(self) -> None:
+        """TripoSRPipelineResultがBasePipelineResultを継承していることを確認。"""
+        from shadowbox.triposr.pipeline import TripoSRPipelineResult
+
+        assert issubclass(TripoSRPipelineResult, BasePipelineResult)
+
+    def test_base_has_common_fields(self) -> None:
+        """BasePipelineResultが共通フィールドを持つことを確認。"""
+        import dataclasses
+
+        fields = {f.name for f in dataclasses.fields(BasePipelineResult)}
+        assert "original_image" in fields
+        assert "mesh" in fields
+        assert "bbox" in fields

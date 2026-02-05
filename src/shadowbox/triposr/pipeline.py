@@ -7,34 +7,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from shadowbox.config.settings import RenderSettings
+from shadowbox.config.settings import ClusteringSettings, RenderSettings
 from shadowbox.config.template import BoundingBox
 from shadowbox.core.back_panel_factory import create_back_panel
+from shadowbox.core.clustering import KMeansLayerClusterer
 from shadowbox.core.frame_factory import FrameConfig, calculate_bounds, create_frame
 from shadowbox.core.mesh import ShadowboxMesh
+from shadowbox.core.pipeline import BasePipelineResult
+from shadowbox.triposr.depth_recovery import DepthRecoverySettings, create_depth_extractor
 from shadowbox.triposr.generator import TripoSRGenerator
+from shadowbox.triposr.mesh_splitter import DepthBasedMeshSplitter, create_split_shadowbox_mesh
 from shadowbox.triposr.settings import TripoSRSettings
 from shadowbox.utils.image import crop_image, image_to_array, load_image
 
+if TYPE_CHECKING:
+    pass
+
 
 @dataclass
-class TripoSRPipelineResult:
+class TripoSRPipelineResult(BasePipelineResult):
     """TripoSRパイプラインの実行結果。
 
-    Attributes:
-        original_image: 元の入力画像（NumPy配列）。
-        mesh: 生成された3Dメッシュ。
-        bbox: 使用されたバウンディングボックス（クロップした場合）。
+    すべてのフィールドは BasePipelineResult から継承。
     """
 
-    original_image: NDArray[np.uint8]
-    mesh: ShadowboxMesh
-    bbox: BoundingBox | None
+    pass  # 共通フィールドのみなので追加フィールドなし
 
 
 class TripoSRPipeline:
@@ -74,6 +77,8 @@ class TripoSRPipeline:
         image: str | Path | Image.Image | NDArray,
         bbox: BoundingBox | None = None,
         include_frame: bool = True,
+        split_by_depth: bool = False,
+        num_layers: int | None = None,
     ) -> TripoSRPipelineResult:
         """画像を処理して3Dメッシュを生成。
 
@@ -81,6 +86,11 @@ class TripoSRPipeline:
             image: 入力画像（パス、PIL Image、またはNumPy配列）。
             bbox: イラスト領域のバウンディングボックス（Noneの場合は画像全体）。
             include_frame: フレームを含めるかどうか。
+            split_by_depth: 深度ベースでメッシュをレイヤーに分割するかどうか。
+                Trueの場合、生成されたメッシュを画像平面に投影して深度マップを復元し、
+                既存のクラスタリング処理を適用してレイヤー分割を行います。
+            num_layers: レイヤー数（split_by_depth=Trueの場合に使用）。
+                Noneの場合は自動決定。
 
         Returns:
             TripoSRPipelineResult: 生成結果。
@@ -106,6 +116,12 @@ class TripoSRPipeline:
         mesh = self._generator.generate(cropped_image)
         print("3Dメッシュ生成完了")
 
+        # 深度ベースの分割（オプション）
+        if split_by_depth:
+            print("深度ベースでメッシュを分割中...")
+            mesh = self._split_mesh_by_depth(mesh, num_layers)
+            print(f"メッシュ分割完了: {mesh.num_layers}レイヤー")
+
         # 背面パネルを追加（RenderSettings.back_panelを参照）
         if self._render_settings.back_panel:
             mesh = self._add_back_panel_to_mesh(mesh, cropped_image)
@@ -119,6 +135,62 @@ class TripoSRPipeline:
             mesh=mesh,
             bbox=bbox,
         )
+
+    def _split_mesh_by_depth(
+        self,
+        mesh: ShadowboxMesh,
+        num_layers: int | None = None,
+    ) -> ShadowboxMesh:
+        """メッシュを深度ベースでレイヤーに分割。
+
+        Args:
+            mesh: TripoSRで生成されたメッシュ（単一レイヤー）。
+            num_layers: レイヤー数。Noneの場合は自動決定。
+
+        Returns:
+            分割されたShadowboxMesh。
+        """
+        # 元のメッシュから頂点、面、色を取得
+        # TripoSRメッシュは単一レイヤーのはず
+        if len(mesh.layers) != 1:
+            print(f"警告: メッシュが既に{len(mesh.layers)}レイヤーに分割されています")
+            return mesh
+
+        layer = mesh.layers[0]
+
+        if layer.faces is None:
+            print("警告: メッシュに面情報がありません。分割をスキップします。")
+            return mesh
+
+        # 深度復元設定を作成
+        depth_settings = DepthRecoverySettings(
+            resolution=self._settings.depth_resolution,
+            fill_holes=self._settings.depth_fill_holes,
+            hole_fill_method=self._settings.depth_fill_method,
+        )
+
+        # 深度抽出器とクラスタラーを作成
+        depth_extractor = create_depth_extractor(use_pyrender=True)
+        clusterer = KMeansLayerClusterer(ClusteringSettings())
+
+        # メッシュ分割器を作成
+        splitter = DepthBasedMeshSplitter(
+            depth_extractor=depth_extractor,
+            clusterer=clusterer,
+            settings=depth_settings,
+        )
+
+        # 分割を実行
+        split_result = splitter.split(
+            vertices=layer.vertices,
+            faces=layer.faces,
+            colors=layer.colors,
+            k=num_layers,
+            face_assignment_method=self._settings.face_assignment_method,
+        )
+
+        # 分割結果からShadowboxMeshを作成
+        return create_split_shadowbox_mesh(split_result, mesh.bounds)
 
     def _add_back_panel_to_mesh(
         self,

@@ -21,6 +21,7 @@ __all__ = [
     "BoundingBox",
     "ShadowboxPipeline",
     "PipelineResult",
+    "BasePipelineResult",
 ]
 
 
@@ -44,4 +45,7 @@ def __getattr__(name: str):
     if name == "PipelineResult":
         from shadowbox.core.pipeline import PipelineResult
         return PipelineResult
+    if name == "BasePipelineResult":
+        from shadowbox.core.pipeline import BasePipelineResult
+        return BasePipelineResult
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

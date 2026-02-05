@@ -8,9 +8,11 @@ from shadowbox.core.frame_factory import (
     create_plane_frame,
     create_walled_frame,
 )
+from shadowbox.core.mesh import MeshGeneratorProtocol
 
 __all__ = [
     "FrameConfig",
+    "MeshGeneratorProtocol",
     "calculate_bounds",
     "create_back_panel",
     "create_frame",

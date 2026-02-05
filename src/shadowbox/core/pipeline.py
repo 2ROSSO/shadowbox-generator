@@ -19,33 +19,44 @@ from shadowbox.core.depth import (
     MockDepthEstimator,
     create_depth_estimator,
 )
-from shadowbox.core.mesh import MeshGenerator, ShadowboxMesh
+from shadowbox.core.mesh import MeshGenerator, MeshGeneratorProtocol, ShadowboxMesh
 from shadowbox.utils.image import crop_image, image_to_array, load_image
 
 
 @dataclass
-class PipelineResult:
-    """パイプラインの実行結果を格納するデータクラス。
+class BasePipelineResult:
+    """パイプライン結果の基底クラス。
+
+    すべてのパイプライン結果で共通するフィールドを定義します。
 
     Attributes:
         original_image: 元の入力画像（NumPy配列）。
-        cropped_image: クロップされたイラスト領域（NumPy配列）。
-        depth_map: 深度マップ（0=近い、1=遠い）。
-        labels: 各ピクセルのレイヤーインデックス。
-        centroids: 各レイヤーの深度セントロイド。
         mesh: 生成された3Dメッシュ。
-        optimal_k: 使用されたレイヤー数。
         bbox: 使用されたバウンディングボックス（クロップした場合）。
     """
 
     original_image: NDArray[np.uint8]
+    mesh: ShadowboxMesh
+    bbox: BoundingBox | None
+
+
+@dataclass
+class PipelineResult(BasePipelineResult):
+    """パイプラインの実行結果を格納するデータクラス。
+
+    Attributes:
+        cropped_image: クロップされたイラスト領域（NumPy配列）。
+        depth_map: 深度マップ（0=近い、1=遠い）。
+        labels: 各ピクセルのレイヤーインデックス。
+        centroids: 各レイヤーの深度セントロイド。
+        optimal_k: 使用されたレイヤー数。
+    """
+
     cropped_image: NDArray[np.uint8]
     depth_map: NDArray[np.float32]
     labels: NDArray[np.int32]
     centroids: NDArray[np.float32]
-    mesh: ShadowboxMesh
     optimal_k: int
-    bbox: BoundingBox | None
 
 
 class ShadowboxPipeline:
@@ -71,7 +82,7 @@ class ShadowboxPipeline:
         self,
         depth_estimator: DepthEstimatorProtocol,
         clusterer: LayerClustererProtocol,
-        mesh_generator: MeshGenerator,
+        mesh_generator: MeshGeneratorProtocol,
         config_loader: ConfigLoaderProtocol,
     ) -> None:
         """パイプラインを初期化。

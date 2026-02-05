@@ -65,7 +65,7 @@ class ShadowboxPipeline:
         self,
         depth_estimator: DepthEstimatorProtocol,  # Protocol で型定義
         clusterer: LayerClustererProtocol,
-        mesh_generator: MeshGenerator,
+        mesh_generator: MeshGeneratorProtocol,    # Protocol で型定義
         config_loader: ConfigLoaderProtocol,
     ) -> None:
         ...
@@ -87,6 +87,8 @@ def create_pipeline(settings: ShadowboxSettings) -> ShadowboxPipeline:
 | `core/pipeline.py` | Main orchestrator, `create_pipeline()` factory |
 | `triposr/generator.py` | TripoSR 3D mesh generation (alternative to depth+clustering) |
 | `triposr/pipeline.py` | TripoSR pipeline wrapper |
+| `triposr/depth_recovery.py` | 3Dメッシュから深度マップを復元 (MeshDepthExtractorProtocol) |
+| `triposr/mesh_splitter.py` | 深度クラスタリングに基づくメッシュ分割 |
 | `detection/region.py` | Auto-detect illustration area |
 | `gui/template_editor.py` | Manual region selection GUI |
 | `gui/image_selector.py` | Image gallery with index selection |
@@ -109,6 +111,22 @@ Image → Crop → TripoSR model → 3D mesh → ShadowboxMesh → 3D render
       BoundingBox            trimesh object
 ```
 
+### TripoSR Mode (深度復元+レイヤー分割)
+```
+Image → Crop → TripoSR model → trimesh
+                                 ↓
+                  MeshDepthExtractorProtocol.extract_depth()
+                                 ↓
+                            depth_map
+                                 ↓
+                  LayerClustererProtocol.cluster()
+                                 ↓
+                  DepthBasedMeshSplitter.split()
+                                 ↓
+                     ShadowboxMesh (k layers)
+```
+**注意**: `LayerClustererProtocol` は Depth モードと共通で使用されます。
+
 ## Protocol Interfaces
 
 ### DepthEstimatorProtocol
@@ -130,6 +148,39 @@ class ConfigLoaderProtocol(Protocol):
     def load_template(self, name: str) -> CardTemplate: ...
     def save_template(self, template: CardTemplate) -> None: ...
 ```
+
+### MeshGeneratorProtocol
+```python
+class MeshGeneratorProtocol(Protocol):
+    def generate(
+        self,
+        image: NDArray[np.uint8],
+        labels: NDArray[np.int32],
+        centroids: NDArray[np.float32],
+        include_frame: bool = True,
+    ) -> ShadowboxMesh: ...
+
+    def generate_raw_depth(
+        self,
+        image: NDArray[np.uint8],
+        depth_map: NDArray[np.float32],
+        include_frame: bool = True,
+        depth_scale: float = 1.0,
+    ) -> ShadowboxMesh: ...
+```
+実装: `MeshGenerator` (標準実装)
+
+### MeshDepthExtractorProtocol
+```python
+class MeshDepthExtractorProtocol(Protocol):
+    def extract_depth(
+        self,
+        vertices: NDArray[np.float32],
+        faces: NDArray[np.int32],
+        resolution: tuple[int, int],
+    ) -> NDArray[np.float32]: ...
+```
+実装: `PyRenderDepthExtractor` (OpenGL), `TrimeshRayCastingExtractor` (CPU fallback)
 
 ## Settings Structure
 
@@ -241,3 +292,19 @@ uv pip install git+https://github.com/tatsy/torchmcubes.git --no-build-isolation
 2. **テストを先に修正** - 期待する動作をテストで定義
 3. **実装を変更**
 4. **全テストが通ることを確認**
+
+### 新しいモード（model_mode）を追加する際
+
+1. **設定クラスを作成** - `config/settings.py` に `NewModeSettings` を追加
+2. **生成器を作成** - `newmode/generator.py` で生成ロジックを実装
+3. **パイプラインを作成** - `newmode/pipeline.py` で `process()` メソッドを実装
+4. **Settings を更新** - `ShadowboxSettings.model_mode` に新しいリテラル型を追加
+5. **Factory を更新** - `create_pipeline()` で新モードの分岐を追加
+6. **テストを作成** - `tests/test_newmode.py`
+7. **再利用可能なコンポーネント**:
+   - `LayerClustererProtocol` - 深度マップのクラスタリング
+   - `MeshDepthExtractorProtocol` - 3Dメッシュからの深度復元
+   - `DepthBasedMeshSplitter` - メッシュのレイヤー分割
+   - Frame/BackPanel factory - フレーム・背面パネル生成
+
+詳細は `docs/architecture_analysis.md` を参照。
