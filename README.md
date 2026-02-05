@@ -7,6 +7,7 @@ Transform TCG card illustrations into interactive 3D shadowbox displays using AI
 - **Depth Estimation**: Uses Depth Anything v2 (lightweight, Apache 2.0 license)
 - **Auto/Manual Region Selection**: Automatically detect or manually select illustration areas
 - **Layer Clustering**: Automatically finds optimal number of layers using silhouette analysis
+- **Contour Cut Mode**: Depth-based contour masking for natural layer shapes (front layers narrow, back layers wide)
 - **Interactive 3D View**: Rotate and explore shadowbox with mouse
 - **Multiple Input Methods**: Load from URL or select from local directory gallery
 - **Template System**: Save and reuse card templates (Pokemon, MTG, etc.)

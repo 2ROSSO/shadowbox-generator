@@ -185,6 +185,7 @@ class MeshGeneratorProtocol(Protocol):
         labels: NDArray[np.int32],
         centroids: NDArray[np.float32],
         include_frame: bool = True,
+        depth_map: NDArray[np.float32] | None = None,  # contourモード用
     ) -> ShadowboxMesh: ...
 
     def generate_raw_depth(
@@ -196,6 +197,10 @@ class MeshGeneratorProtocol(Protocol):
     ) -> ShadowboxMesh: ...
 ```
 実装: `MeshGenerator` (標準実装)
+
+**layer_mask_mode について**:
+- `"cluster"` (デフォルト): クラスタラベルでレイヤー形状を決定（全レイヤーが同じ矩形）
+- `"contour"`: 生深度の閾値でレイヤー形状を切り取り（手前レイヤーほど狭く、奥ほど広い等高線形状）。`depth_map` パラメータが必要。
 
 ### MeshDepthExtractorProtocol
 ```python
@@ -217,6 +222,9 @@ ShadowboxSettings
 ├── depth: DepthSettings     # Depth model config
 ├── clustering: ClusteringSettings
 ├── render: RenderSettings   # Layer options, frame settings
+│   ├── layer_spacing_mode   # "even" or "proportional"
+│   ├── layer_mask_mode      # "cluster" or "contour"
+│   └── ...                  # thickness, gap, frame, pop_out, etc.
 ├── triposr: TripoSRSettings # TripoSR-specific config
 └── templates_dir: Path
 ```
