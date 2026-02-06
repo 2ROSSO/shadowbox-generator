@@ -104,13 +104,28 @@ class TripoSRGenerator:
         try:
             from tsr.system import TSR
         except ImportError as e:
-            raise ImportError(
-                "TripoSRを使用するには、以下の手順でインストールしてください:\n"
-                "  1. git clone https://github.com/VAST-AI-Research/TripoSR.git\n"
-                "  2. pip install -r TripoSR/requirements.txt\n"
-                "  3. TripoSRディレクトリをPYTHONPATHに追加するか、\n"
-                "     TripoSRディレクトリから実行してください"
-            ) from e
+            msg = str(e)
+            if "tsr" in msg.lower() and "torchmcubes" not in msg.lower():
+                hint = (
+                    "TripoSRを使用するには、以下の手順でインストールしてください:\n"
+                    "  1. git clone https://github.com/VAST-AI-Research/TripoSR.git\n"
+                    "  2. プロジェクトルートに配置（自動検出されます）"
+                )
+            elif "torchmcubes" in msg.lower():
+                hint = (
+                    "torchmcubes のインストールが必要です:\n"
+                    "  uv pip install scikit-build-core cmake ninja pybind11\n"
+                    "  set CMAKE_PREFIX_PATH="
+                    ".venv\\Lib\\site-packages\\torch\\share\\cmake\n"
+                    "  uv pip install git+https://github.com/tatsy/torchmcubes.git"
+                    " --no-build-isolation"
+                )
+            else:
+                hint = (
+                    "TripoSR の依存関係が不足しています:\n"
+                    "  uv sync --extra triposr"
+                )
+            raise ImportError(f"{msg}\n\n{hint}") from e
 
         # デバイスを決定
         device = self._settings.device
