@@ -276,6 +276,10 @@ class ShadowboxApp(QMainWindow):
             )
         )
 
+        # Clear previous region selection and bbox
+        self.image_preview._region_selector.clear_selection()
+        self._bbox = None
+
         # Update preview tabs
         if hasattr(result, "depth_map"):
             self.image_preview.set_depth_map(result.depth_map)

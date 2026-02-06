@@ -64,3 +64,15 @@ class TestImagePreview:
         preview._switch_tab("depth")
         assert preview._current_tab == "depth"
         assert preview._stack.currentIndex() == 1
+
+    def test_region_toggle_on_switches_to_original(self, qtbot):
+        from shadowbox.gui.widgets.image_preview import ImagePreview
+
+        preview = ImagePreview()
+        qtbot.addWidget(preview)
+        preview._switch_tab("depth")
+        assert preview._current_tab == "depth"
+        # Simulating region toggle ON
+        preview._on_region_toggle(True)
+        assert preview._current_tab == "original"
+        assert preview._stack.currentIndex() == 0

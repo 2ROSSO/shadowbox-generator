@@ -99,6 +99,9 @@ class ImagePreview(QWidget):
         self._stack.setCurrentIndex(idx)
         self._current_tab = key
         self._update_tab_styles()
+        # Re-sync region selector when switching to original tab
+        if key == "original" and "original" in self._pixmaps:
+            self._display_pixmap("original", self._pixmaps["original"])
 
     def _update_tab_styles(self) -> None:
         for k, btn in self._tab_buttons.items():
@@ -115,7 +118,9 @@ class ImagePreview(QWidget):
 
     def _on_region_toggle(self, checked: bool) -> None:
         self._region_selector.set_active(checked)
-        if not checked:
+        if checked:
+            self._switch_tab("original")
+        else:
             self._region_selector.clear_selection()
 
     def set_image(self, image: Image.Image) -> None:
