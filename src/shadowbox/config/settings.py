@@ -88,7 +88,6 @@ class RenderSettings:
 
     Attributes:
         layer_thickness: 各レイヤーのZ軸方向の厚み。
-        layer_gap: レイヤー間の隙間。0で密着した積み上げになります。
         frame_z: フレーム(枠)のZ位置。0が最前面です。
         background_color: 3Dシーンの背景色 (16進数カラーコード)。
         lighting_intensity: シーン照明の強度。
@@ -106,15 +105,11 @@ class RenderSettings:
         >>> # デフォルト設定
         >>> settings = RenderSettings()
         >>>
-        >>> # レイヤー間に隙間を設ける
-        >>> settings = RenderSettings(layer_gap=0.05)
-        >>>
         >>> # 従来の穴あきレイヤーモード
         >>> settings = RenderSettings(cumulative_layers=False)
     """
 
     layer_thickness: float = 0.1
-    layer_gap: float = 0.0
     frame_z: float = 0.0
     frame_depth: float = 0.5  # 額縁の厚み（固定値、レイヤー数に依存しない）
     background_color: str = "#1a1a2e"

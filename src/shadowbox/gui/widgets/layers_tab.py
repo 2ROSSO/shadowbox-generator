@@ -103,17 +103,6 @@ class LayersTab(QWidget):
         row.addWidget(self.layer_thickness)
         layout.addLayout(row)
 
-        # Layer Gap
-        row = QHBoxLayout()
-        self._lbl_gap = QLabel(tr("layer.gap"))
-        row.addWidget(self._lbl_gap)
-        self.layer_gap = QDoubleSpinBox()
-        self.layer_gap.setRange(0.0, 0.5)
-        self.layer_gap.setSingleStep(0.01)
-        self.layer_gap.setValue(0.0)
-        row.addWidget(self.layer_gap)
-        layout.addLayout(row)
-
         layout.addStretch()
 
     def _connect_signals(self) -> None:
@@ -133,7 +122,6 @@ class LayersTab(QWidget):
         self.spacing_mode.currentIndexChanged.connect(self.settings_changed)
         self.mask_mode.currentIndexChanged.connect(self.settings_changed)
         self.layer_thickness.valueChanged.connect(self.settings_changed)
-        self.layer_gap.valueChanged.connect(self.settings_changed)
 
     def retranslate(self) -> None:
         """言語変更時にUI文字列を更新。"""
@@ -144,7 +132,6 @@ class LayersTab(QWidget):
         self._lbl_spacing.setText(tr("layer.spacing_mode"))
         self._lbl_mask.setText(tr("layer.mask_mode"))
         self._lbl_thickness.setText(tr("layer.thickness"))
-        self._lbl_gap.setText(tr("layer.gap"))
 
     def set_values(self, values: dict) -> None:
         """辞書から設定値を復元。"""
@@ -162,8 +149,6 @@ class LayersTab(QWidget):
             self.mask_mode.setCurrentText(values["layer_mask_mode"])
         if "layer_thickness" in values:
             self.layer_thickness.setValue(values["layer_thickness"])
-        if "layer_gap" in values:
-            self.layer_gap.setValue(values["layer_gap"])
 
     def get_values(self) -> dict:
         """現在の設定値を辞書で返す。"""
@@ -175,5 +160,4 @@ class LayersTab(QWidget):
             "layer_spacing_mode": self.spacing_mode.currentText(),
             "layer_mask_mode": self.mask_mode.currentText(),
             "layer_thickness": self.layer_thickness.value(),
-            "layer_gap": self.layer_gap.value(),
         }

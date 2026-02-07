@@ -22,7 +22,6 @@ class TestGuiToShadowboxSettings:
     def test_render_settings_mapped(self):
         gs = GuiSettings(
             layer_thickness=0.2,
-            layer_gap=0.05,
             frame_depth=1.0,
             frame_wall_mode="none",
             cumulative_layers=False,
@@ -35,7 +34,6 @@ class TestGuiToShadowboxSettings:
         ss = gui_to_shadowbox_settings(gs)
         r = ss.render
         assert r.layer_thickness == 0.2
-        assert r.layer_gap == 0.05
         assert r.frame_depth == 1.0
         assert r.frame_wall_mode == "none"
         assert r.cumulative_layers is False

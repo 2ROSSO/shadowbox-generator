@@ -191,7 +191,6 @@ class TestSettings:
         settings = RenderSettings()
 
         assert settings.layer_thickness == 0.1
-        assert settings.layer_gap == 0.0
         assert settings.frame_z == 0.0
 
     def test_shadowbox_settings_defaults(self) -> None:

@@ -38,7 +38,6 @@ class GuiSettings:
     layer_spacing_mode: Literal["even", "proportional"] = "proportional"
     layer_mask_mode: Literal["cluster", "contour"] = "contour"
     layer_thickness: float = 0.2
-    layer_gap: float = 0.0
 
     # --- Frame ---
     include_frame: bool = True
@@ -66,7 +65,6 @@ def gui_to_shadowbox_settings(gs: GuiSettings):
 
     render = RenderSettings(
         layer_thickness=gs.layer_thickness,
-        layer_gap=gs.layer_gap,
         frame_depth=gs.frame_depth,
         frame_wall_mode=gs.frame_wall_mode,
         cumulative_layers=gs.cumulative_layers,

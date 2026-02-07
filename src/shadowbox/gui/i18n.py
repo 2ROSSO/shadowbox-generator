@@ -121,7 +121,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "layer.spacing_mode": {"en": "Spacing mode:", "ja": "間隔モード:"},
     "layer.mask_mode": {"en": "Mask mode:", "ja": "マスクモード:"},
     "layer.thickness": {"en": "Layer thickness:", "ja": "レイヤー厚み:"},
-    "layer.gap": {"en": "Layer gap:", "ja": "レイヤー隙間:"},
     # ---- Frame tab ----
     "frame.include": {"en": "Include frame", "ja": "フレームを含める"},
     "frame.include_card": {"en": "Include card frame", "ja": "カードフレームを含める"},
