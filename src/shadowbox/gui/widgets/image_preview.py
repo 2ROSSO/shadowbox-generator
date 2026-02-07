@@ -151,6 +151,7 @@ class ImagePreview(QWidget):
             self._legend.set_depth_entries(self._depth_legend_entries)
         else:
             self._legend.clear()
+        self._legend.raise_()
 
     def _on_region_select_clicked(self) -> None:
         """選択をクリアし、領域選択モードに入る。"""
@@ -191,6 +192,7 @@ class ImagePreview(QWidget):
             ((128, 128, 128), "Mid"),
             ((0, 0, 0), "Far"),
         ]
+        self._update_legend()
 
     def set_labels(
         self,
@@ -236,6 +238,7 @@ class ImagePreview(QWidget):
                 (tuple(LAYER_PALETTE[i % len(LAYER_PALETTE)].tolist()), f"Layer {i}")
                 for i in range(k)
             ]
+        self._update_legend()
 
     def clear(self) -> None:
         """全画像をクリア。"""
