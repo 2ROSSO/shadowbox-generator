@@ -126,6 +126,7 @@ class ImagePreview(QWidget):
         self._current_tab = key
         self._update_tab_styles()
         self._update_legend()
+        self._region_selector.raise_()
         # Re-sync region selector when switching to original tab
         if key == "original" and "original" in self._pixmaps:
             self._display_pixmap("original", self._pixmaps["original"])
