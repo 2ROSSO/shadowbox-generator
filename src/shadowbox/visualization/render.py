@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -299,16 +300,18 @@ class ShadowboxRenderer:
         mesh: ShadowboxMesh,
         output_dir: str | Path,
         size: tuple[int, int] = (800, 800),
-        tilt_degrees: float = 25.0,
+        tilt_degrees_list: Sequence[float] = (25.0, 15.0),
         prefix: str = "shadowbox",
     ) -> list[Path]:
         """8方向からのスクリーンショットを一括エクスポート。
+
+        各tilt角度ごとに8方向を出力する。
 
         Args:
             mesh: レンダリングするシャドーボックスメッシュ。
             output_dir: 出力ディレクトリ。
             size: 各画像のサイズ。
-            tilt_degrees: 傾斜角度（度）。
+            tilt_degrees_list: 傾斜角度のリスト（度）。
             prefix: ファイル名のプレフィックス。
 
         Returns:
@@ -325,58 +328,64 @@ class ShadowboxRenderer:
         distance = 4.5
         sqrt2 = math.sqrt(2.0)
 
-        directions = [
-            ("left", 315, 0),
-            ("upper_left", 315, tilt_degrees / sqrt2),
-            ("top", 0, tilt_degrees),
-            ("upper_right", 45, tilt_degrees / sqrt2),
-            ("right", 45, 0),
-            ("lower_right", 45, -tilt_degrees / sqrt2),
-            ("bottom", 0, -tilt_degrees),
-            ("lower_left", 315, -tilt_degrees / sqrt2),
+        direction_names = [
+            ("left", 315, 0.0),
+            ("upper_left", 315, 1.0 / sqrt2),
+            ("top", 0, 1.0),
+            ("upper_right", 45, 1.0 / sqrt2),
+            ("right", 45, 0.0),
+            ("lower_right", 45, -1.0 / sqrt2),
+            ("bottom", 0, -1.0),
+            ("lower_left", 315, -1.0 / sqrt2),
         ]
 
         saved_files: list[Path] = []
 
-        for name, azimuth_deg, elevation_deg in directions:
-            az = math.radians(azimuth_deg)
-            el = math.radians(elevation_deg)
+        for tilt_degrees in tilt_degrees_list:
+            tilt_label = f"{int(tilt_degrees)}deg"
 
-            cam_x = focal[0] + distance * math.cos(el) * math.sin(az)
-            cam_y = focal[1] + distance * math.sin(el)
-            cam_z = focal[2] + distance * math.cos(el) * math.cos(az)
+            for name, azimuth_deg, elev_factor in direction_names:
+                elevation_deg = tilt_degrees * elev_factor
+                az = math.radians(azimuth_deg)
+                el = math.radians(elevation_deg)
 
-            plotter = vedo.Plotter(
-                size=size,
-                offscreen=True,
-                bg=self._normalize_color(self._options.background_color),
-            )
+                cam_x = focal[0] + distance * math.cos(el) * math.sin(az)
+                cam_y = focal[1] + distance * math.sin(el)
+                cam_z = focal[2] + distance * math.cos(el) * math.cos(az)
 
-            actors = []
-            for layer in mesh.layers:
-                if len(layer.vertices) == 0:
-                    continue
-                points = vedo.Points(layer.vertices, r=self._options.point_size)
-                points.pointdata["RGB"] = layer.colors
-                points.pointdata.select("RGB")
-                points.alpha(self._options.layer_opacity)
-                actors.append(points)
+                plotter = vedo.Plotter(
+                    size=size,
+                    offscreen=True,
+                    bg=self._normalize_color(self._options.background_color),
+                )
 
-            if self._options.show_frame and mesh.frame is not None:
-                frame_mesh = self._create_frame_mesh(mesh.frame)
-                if frame_mesh is not None:
-                    actors.append(frame_mesh)
+                actors = []
+                for layer in mesh.layers:
+                    if len(layer.vertices) == 0:
+                        continue
+                    points = vedo.Points(
+                        layer.vertices, r=self._options.point_size
+                    )
+                    points.pointdata["RGB"] = layer.colors
+                    points.pointdata.select("RGB")
+                    points.alpha(self._options.layer_opacity)
+                    actors.append(points)
 
-            plotter.add(actors)
-            if plotter.camera is not None:
-                plotter.camera.SetPosition(cam_x, cam_y, cam_z)
-                plotter.camera.SetFocalPoint(*focal)
-                plotter.camera.SetViewUp(0, 1, 0)
+                if self._options.show_frame and mesh.frame is not None:
+                    frame_mesh = self._create_frame_mesh(mesh.frame)
+                    if frame_mesh is not None:
+                        actors.append(frame_mesh)
 
-            filepath = output_path / f"{prefix}_{name}.png"
-            plotter.screenshot(str(filepath))
-            plotter.close()
-            saved_files.append(filepath)
+                plotter.add(actors)
+                if plotter.camera is not None:
+                    plotter.camera.SetPosition(cam_x, cam_y, cam_z)
+                    plotter.camera.SetFocalPoint(*focal)
+                    plotter.camera.SetViewUp(0, 1, 0)
+
+                filepath = output_path / f"{prefix}_{tilt_label}_{name}.png"
+                plotter.screenshot(str(filepath))
+                plotter.close()
+                saved_files.append(filepath)
 
         return saved_files
 

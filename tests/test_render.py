@@ -316,24 +316,23 @@ class TestMultiAngleExport:
         reason="Vedo is not available",
     )
     def test_export_8_directions(self, sample_mesh: ShadowboxMesh, tmp_path) -> None:
-        """8方向のスクリーンショットが専用サブディレクトリに生成されることを確認。"""
+        """各tilt角度×8方向のスクリーンショットが専用サブディレクトリに生成されることを確認。"""
         renderer = ShadowboxRenderer()
         files = renderer.export_multi_angle_screenshots(
             sample_mesh, tmp_path, size=(200, 200)
         )
 
-        assert len(files) == 8
+        # デフォルトは (25.0, 15.0) の2段階 × 8方向 = 16枚
+        assert len(files) == 16
         subdir = tmp_path / "shadowbox"
-        expected_names = [
-            "shadowbox_left.png",
-            "shadowbox_upper_left.png",
-            "shadowbox_top.png",
-            "shadowbox_upper_right.png",
-            "shadowbox_right.png",
-            "shadowbox_lower_right.png",
-            "shadowbox_bottom.png",
-            "shadowbox_lower_left.png",
+        direction_names = [
+            "left", "upper_left", "top", "upper_right",
+            "right", "lower_right", "bottom", "lower_left",
         ]
+        expected_names = []
+        for tilt in [25, 15]:
+            for name in direction_names:
+                expected_names.append(f"shadowbox_{tilt}deg_{name}.png")
         for f, expected in zip(files, expected_names, strict=True):
             assert f.parent == subdir
             assert f.name == expected
@@ -351,7 +350,7 @@ class TestMultiAngleExport:
             sample_mesh, tmp_path, size=(200, 200), prefix="card01"
         )
 
-        assert len(files) == 8
+        assert len(files) == 16
         subdir = tmp_path / "card01"
         assert all(f.parent == subdir for f in files)
         assert all(f.name.startswith("card01_") for f in files)
