@@ -92,6 +92,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "tab.layers": {"en": "Layers", "ja": "レイヤー"},
     "tab.no_image": {"en": "No image", "ja": "画像なし"},
     "tab.region_select": {"en": "Region Select", "ja": "領域選択"},
+    "tab.region_reset": {"en": "Region Reset", "ja": "領域リセット"},
     # ---- Buttons ----
     "btn.generate": {"en": "Generate Shadowbox", "ja": "シャドーボックス生成"},
     "btn.view_3d": {"en": "Open 3D View", "ja": "3Dビューを開く"},

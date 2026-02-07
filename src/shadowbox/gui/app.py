@@ -279,8 +279,9 @@ class ShadowboxApp(QMainWindow):
             )
         )
 
-        # Clear previous region selection and bbox
+        # Clear previous region selection and deactivate selector
         self.image_preview._region_selector.clear_selection()
+        self.image_preview._region_selector.set_active(False)
         self._bbox = None
 
         # Update preview tabs

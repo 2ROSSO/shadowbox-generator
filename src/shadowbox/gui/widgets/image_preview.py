@@ -12,9 +12,9 @@ import numpy as np
 from PyQt6.QtCore import QRect, Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QResizeEvent
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -74,10 +74,21 @@ class ImagePreview(QWidget):
             self._tab_buttons[key] = btn
             tab_row.addWidget(btn)
 
-        # Region toggle
-        self._region_check = QCheckBox(tr("tab.region_select"))
-        self._region_check.toggled.connect(self._on_region_toggle)
-        tab_row.addWidget(self._region_check)
+        # Region buttons
+        btn_style = (
+            "padding: 4px 12px; border: 1px solid #444; border-radius: 3px;"
+        )
+        self._region_btn = QPushButton(tr("tab.region_select"))
+        self._region_btn.setStyleSheet(btn_style)
+        self._region_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._region_btn.clicked.connect(self._on_region_select_clicked)
+        tab_row.addWidget(self._region_btn)
+
+        self._region_reset_btn = QPushButton(tr("tab.region_reset"))
+        self._region_reset_btn.setStyleSheet(btn_style)
+        self._region_reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._region_reset_btn.clicked.connect(self._on_region_reset_clicked)
+        tab_row.addWidget(self._region_reset_btn)
 
         layout.addLayout(tab_row)
 
@@ -141,12 +152,16 @@ class ImagePreview(QWidget):
         else:
             self._legend.clear()
 
-    def _on_region_toggle(self, checked: bool) -> None:
-        self._region_selector.set_active(checked)
-        if checked:
-            self._switch_tab("original")
-        else:
-            self._region_selector.clear_selection()
+    def _on_region_select_clicked(self) -> None:
+        """選択をクリアし、領域選択モードに入る。"""
+        self._region_selector.clear_selection()
+        self._region_selector.set_active(True)
+        self._switch_tab("original")
+
+    def _on_region_reset_clicked(self) -> None:
+        """選択をクリアし、領域選択モードを解除する。"""
+        self._region_selector.clear_selection()
+        self._region_selector.set_active(False)
 
     def set_image(self, image: Image.Image) -> None:
         """元画像をセット。"""
@@ -259,7 +274,8 @@ class ImagePreview(QWidget):
         """言語変更時にUI文字列を更新。"""
         for key, tr_key in zip(self._tab_keys, self._tab_tr_keys, strict=True):
             self._tab_buttons[key].setText(tr(tr_key))
-        self._region_check.setText(tr("tab.region_select"))
+        self._region_btn.setText(tr("tab.region_select"))
+        self._region_reset_btn.setText(tr("tab.region_reset"))
         # Update placeholder text for tabs without pixmaps
         for key, lbl in self._labels.items():
             if key not in self._pixmaps:
