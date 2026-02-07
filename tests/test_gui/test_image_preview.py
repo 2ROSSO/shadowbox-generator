@@ -76,3 +76,16 @@ class TestImagePreview:
         preview._on_region_toggle(True)
         assert preview._current_tab == "original"
         assert preview._stack.currentIndex() == 0
+
+    def test_restore_region_delegates(self, qtbot):
+        from unittest.mock import patch
+
+        from shadowbox.gui.widgets.image_preview import ImagePreview
+
+        preview = ImagePreview()
+        qtbot.addWidget(preview)
+        with patch.object(
+            preview._region_selector, "set_selection"
+        ) as mock_set:
+            preview.restore_region(10, 20, 300, 400)
+            mock_set.assert_called_once_with(10, 20, 300, 400)

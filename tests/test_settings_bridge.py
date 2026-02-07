@@ -9,7 +9,6 @@ import pytest
 
 from shadowbox.gui.settings_bridge import (
     GuiSettings,
-    _DEFAULTS_PATH,
     gui_to_process_kwargs,
     load_defaults,
     save_defaults,
@@ -18,6 +17,14 @@ from shadowbox.gui.settings_bridge import (
 
 class TestGuiSettingsDefaults:
     """GuiSettings のデフォルト値を検証。"""
+
+    def test_region_image_path_default(self) -> None:
+        gs = GuiSettings()
+        assert gs.region_image_path is None
+
+    def test_region_selection_default(self) -> None:
+        gs = GuiSettings()
+        assert gs.region_selection is None
 
     def test_layer_interpolation_default(self) -> None:
         gs = GuiSettings()
@@ -136,3 +143,31 @@ class TestSaveLoadDefaults:
         assert loaded is not None
         assert loaded.background_color == (100, 200, 50)
         assert isinstance(loaded.background_color, tuple)
+
+    def test_roundtrip_region_selection(self) -> None:
+        original = GuiSettings(
+            region_image_path="/path/to/card.png",
+            region_selection=(10, 20, 300, 400),
+        )
+        save_defaults(original)
+        loaded = load_defaults()
+        assert loaded is not None
+        assert loaded.region_image_path == "/path/to/card.png"
+        assert loaded.region_selection == (10, 20, 300, 400)
+
+    def test_region_selection_none_roundtrip(self) -> None:
+        original = GuiSettings()  # both region fields are None
+        save_defaults(original)
+        loaded = load_defaults()
+        assert loaded is not None
+        assert loaded.region_image_path is None
+        assert loaded.region_selection is None
+
+    def test_region_selection_list_to_tuple(self) -> None:
+        data = {"region_selection": [10, 20, 300, 400]}
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = load_defaults()
+        assert loaded is not None
+        assert loaded.region_selection == (10, 20, 300, 400)
+        assert isinstance(loaded.region_selection, tuple)
