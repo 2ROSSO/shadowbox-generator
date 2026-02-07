@@ -54,6 +54,10 @@ class GuiSettings:
     layer_opacity: float = 1.0
     background_color: tuple[int, int, int] = field(default=(30, 30, 30))
 
+    # --- Region (session state) ---
+    region_image_path: str | None = None
+    region_selection: tuple[int, int, int, int] | None = None  # (x, y, w, h)
+
 
 def gui_to_shadowbox_settings(gs: GuiSettings):
     """GuiSettings → ShadowboxSettings を生成。
@@ -129,6 +133,8 @@ def save_defaults(gs: GuiSettings) -> None:
     data = asdict(gs)
     # tuple → list (JSON互換)
     data["background_color"] = list(data["background_color"])
+    if data["region_selection"] is not None:
+        data["region_selection"] = list(data["region_selection"])
     _DEFAULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     _DEFAULTS_PATH.write_text(
         json.dumps(data, indent=2, ensure_ascii=False),
@@ -159,6 +165,12 @@ def load_defaults() -> GuiSettings | None:
         filtered["background_color"], list
     ):
         filtered["background_color"] = tuple(filtered["background_color"])
+
+    # region_selection: list → tuple
+    if "region_selection" in filtered and isinstance(
+        filtered["region_selection"], list
+    ):
+        filtered["region_selection"] = tuple(filtered["region_selection"])
 
     try:
         return GuiSettings(**filtered)

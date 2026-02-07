@@ -66,6 +66,7 @@ class ShadowboxApp(QMainWindow):
         load_language_preference()
 
         self._image: Image.Image | None = None
+        self._image_path: str | None = None
         self._image_stem: str = "shadowbox"
         self._result = None
         self._bbox: BoundingBox | None = None
@@ -195,17 +196,22 @@ class ShadowboxApp(QMainWindow):
 
     # ---- Image loading ----
 
-    def _open_image(self) -> None:
+    def _open_image(self, file_path: str | None = None) -> None:
         from shadowbox.gui.i18n import tr
 
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            tr("dialog.open_image"),
-            "",
-            tr("dialog.image_filter"),
-        )
+        # triggered signal may pass bool; normalize to None
+        if not isinstance(file_path, str):
+            file_path = None
+        if file_path is None:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                tr("dialog.open_image"),
+                "",
+                tr("dialog.image_filter"),
+            )
         if file_path:
             try:
+                self._image_path = file_path
                 self._image_stem = Path(file_path).stem
                 self._image = Image.open(file_path).convert("RGB")
                 self.image_preview.set_image(self._image)
@@ -216,12 +222,30 @@ class ShadowboxApp(QMainWindow):
                 self._status_bar.showMessage(
                     tr("status.loaded", name=Path(file_path).name)
                 )
+                # Restore saved region if path matches
+                self._try_restore_region()
             except Exception as e:
                 QMessageBox.critical(
                     self,
                     tr("dialog.error"),
                     tr("dialog.load_failed", error=e),
                 )
+
+    # ---- Region restore ----
+
+    def _try_restore_region(self) -> None:
+        """保存済み設定からリージョン選択を復元（パスが一致する場合のみ）。"""
+        saved = self._initial_settings
+        if (
+            saved.region_image_path
+            and saved.region_selection
+            and self._image_path == saved.region_image_path
+        ):
+            from shadowbox.config.template import BoundingBox
+
+            x, y, w, h = saved.region_selection
+            self._bbox = BoundingBox(x=x, y=y, width=w, height=h)
+            self.image_preview.restore_region(x, y, w, h)
 
     # ---- Region selection ----
 
@@ -430,6 +454,13 @@ class ShadowboxApp(QMainWindow):
             self.settings_panel.set_gui_settings(loaded)
         self._initial_settings = self.settings_panel.get_gui_settings()
 
+        # Auto-open last image (region is restored inside _open_image)
+        if (
+            self._initial_settings.region_image_path
+            and Path(self._initial_settings.region_image_path).is_file()
+        ):
+            self._open_image(self._initial_settings.region_image_path)
+
     def closeEvent(self, event) -> None:  # noqa: N802
         from dataclasses import asdict
 
@@ -437,6 +468,15 @@ class ShadowboxApp(QMainWindow):
         from shadowbox.gui.settings_bridge import save_defaults
 
         current = self.settings_panel.get_gui_settings()
+        # Attach region state
+        current.region_image_path = self._image_path
+        if self._bbox is not None:
+            current.region_selection = (
+                self._bbox.x, self._bbox.y,
+                self._bbox.width, self._bbox.height,
+            )
+        else:
+            current.region_selection = None
         if asdict(current) != asdict(self._initial_settings):
             reply = QMessageBox.question(
                 self,

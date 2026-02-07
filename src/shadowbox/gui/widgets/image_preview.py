@@ -126,7 +126,11 @@ class ImagePreview(QWidget):
         self._current_tab = key
         self._update_tab_styles()
         self._update_legend()
-        self._region_selector.raise_()
+        if key == "original":
+            self._region_selector.show()
+            self._region_selector.raise_()
+        else:
+            self._region_selector.hide()
         # Re-sync region selector when switching to original tab
         if key == "original" and "original" in self._pixmaps:
             self._display_pixmap("original", self._pixmaps["original"])
@@ -240,6 +244,10 @@ class ImagePreview(QWidget):
                 for i in range(k)
             ]
         self._update_legend()
+
+    def restore_region(self, x: int, y: int, w: int, h: int) -> None:
+        """保存済み選択領域を復元。"""
+        self._region_selector.set_selection(x, y, w, h)
 
     def clear(self) -> None:
         """全画像をクリア。"""

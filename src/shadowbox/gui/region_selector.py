@@ -68,6 +68,23 @@ class RegionSelector(QWidget):
         self.update()
         self.region_cleared.emit()
 
+    def set_selection(self, x: int, y: int, w: int, h: int) -> None:
+        """画像座標系で選択領域を設定（復元用）。シグナルは発行しない。"""
+        ir = self._image_rect
+        if ir.isEmpty() or self._image_size == (0, 0):
+            return
+        iw, ih = self._image_size
+        scale_x = ir.width() / iw
+        scale_y = ir.height() / ih
+        wx = int(ir.x() + x * scale_x)
+        wy = int(ir.y() + y * scale_y)
+        ww = int(w * scale_x)
+        wh = int(h * scale_y)
+        self._selection = QRect(wx, wy, ww, wh)
+        self._start = None
+        self._end = None
+        self.update()
+
     def get_selection(self) -> tuple[int, int, int, int] | None:
         """画像座標系での選択領域を取得。
 
