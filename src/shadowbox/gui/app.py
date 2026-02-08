@@ -235,16 +235,16 @@ class ShadowboxApp(QMainWindow):
     # ---- Region restore ----
 
     def _try_restore_region(self) -> None:
-        """保存済み設定からリージョン選択を復元（パスが一致する場合のみ）。"""
-        saved = self._initial_settings
-        if (
-            saved.region_image_path
-            and saved.region_selection
-            and self._image_path == saved.region_image_path
-        ):
+        """per-card region history からリージョン選択を復元。"""
+        if self._image_path is None:
+            return
+        from shadowbox.gui.settings_bridge import load_region
+
+        region = load_region(self._image_path)
+        if region is not None:
             from shadowbox.config.template import BoundingBox
 
-            x, y, w, h = saved.region_selection
+            x, y, w, h = region
             self._bbox = BoundingBox(x=x, y=y, width=w, height=h)
             self.image_preview.restore_region(x, y, w, h)
 
@@ -255,6 +255,10 @@ class ShadowboxApp(QMainWindow):
         from shadowbox.gui.i18n import tr
 
         self._bbox = BoundingBox(x=x, y=y, width=w, height=h)
+        if self._image_path is not None:
+            from shadowbox.gui.settings_bridge import save_region
+
+            save_region(self._image_path, (x, y, w, h))
         self._status_bar.showMessage(
             tr("status.region_selected", x=x, y=y, w=w, h=h)
         )
@@ -263,6 +267,10 @@ class ShadowboxApp(QMainWindow):
         from shadowbox.gui.i18n import tr
 
         self._bbox = None
+        if self._image_path is not None:
+            from shadowbox.gui.settings_bridge import remove_region
+
+            remove_region(self._image_path)
         self._status_bar.showMessage(tr("status.region_cleared"))
 
     # ---- Processing ----
@@ -463,7 +471,6 @@ class ShadowboxApp(QMainWindow):
         # Tabs don't store region fields; preserve from loaded settings
         if loaded is not None:
             self._initial_settings.region_image_path = loaded.region_image_path
-            self._initial_settings.region_selection = loaded.region_selection
 
         # Auto-open last image (region is restored inside _open_image)
         if (
@@ -479,15 +486,8 @@ class ShadowboxApp(QMainWindow):
         from shadowbox.gui.settings_bridge import save_defaults
 
         current = self.settings_panel.get_gui_settings()
-        # Attach region state
+        # Attach region state (image path only; region is saved per-card)
         current.region_image_path = self._image_path
-        if self._bbox is not None:
-            current.region_selection = (
-                self._bbox.x, self._bbox.y,
-                self._bbox.width, self._bbox.height,
-            )
-        else:
-            current.region_selection = None
         if asdict(current) != asdict(self._initial_settings):
             reply = QMessageBox.question(
                 self,

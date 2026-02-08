@@ -94,7 +94,7 @@ class TestRegionPersistence:
         window._open_image(str(img_path))
         assert window._image_path == str(img_path)
 
-    def test_close_saves_region(self, qtbot, tmp_path):
+    def test_close_saves_image_path(self, qtbot, tmp_path):
         from PyQt6.QtWidgets import QMessageBox as RealQMessageBox
 
         from shadowbox.config.template import BoundingBox
@@ -120,9 +120,8 @@ class TestRegionPersistence:
             assert mock_save.called
             saved_gs = mock_save.call_args[0][0]
             assert saved_gs.region_image_path == "/path/to/card.png"
-            assert saved_gs.region_selection == (10, 20, 300, 400)
 
-    def test_close_saves_none_region(self, qtbot):
+    def test_close_saves_none_image_path(self, qtbot):
         from PyQt6.QtWidgets import QMessageBox as RealQMessageBox
 
         from shadowbox.gui.app import ShadowboxApp
@@ -146,7 +145,7 @@ class TestRegionPersistence:
             window.close()
             assert mock_save.called
             saved_gs = mock_save.call_args[0][0]
-            assert saved_gs.region_selection is None
+            assert saved_gs.region_image_path is None
 
     def test_restore_region_matching_path(self, qtbot, tmp_path):
         from PIL import Image
@@ -159,12 +158,14 @@ class TestRegionPersistence:
 
         saved_settings = GuiSettings(
             region_image_path=str(img_path),
-            region_selection=(10, 20, 50, 60),
         )
 
         with patch(
             "shadowbox.gui.settings_bridge.load_defaults",
             return_value=saved_settings,
+        ), patch(
+            "shadowbox.gui.settings_bridge.load_region",
+            return_value=(10, 20, 50, 60),
         ):
             window = ShadowboxApp()
             qtbot.addWidget(window)
@@ -173,7 +174,7 @@ class TestRegionPersistence:
             assert window._bbox.x == 10
             assert window._bbox.y == 20
 
-    def test_restore_region_different_path(self, qtbot, tmp_path):
+    def test_restore_region_no_history(self, qtbot, tmp_path):
         from PIL import Image
 
         from shadowbox.gui.app import ShadowboxApp
@@ -183,19 +184,19 @@ class TestRegionPersistence:
         Image.new("RGB", (200, 200), "blue").save(img_path)
 
         saved_settings = GuiSettings(
-            region_image_path="/other/path.png",  # different path
-            region_selection=(10, 20, 50, 60),
+            region_image_path=str(img_path),
         )
 
         with patch(
             "shadowbox.gui.settings_bridge.load_defaults",
             return_value=saved_settings,
+        ), patch(
+            "shadowbox.gui.settings_bridge.load_region",
+            return_value=None,
         ):
             window = ShadowboxApp()
             qtbot.addWidget(window)
-            # Path doesn't exist so auto-open won't trigger;
-            # even if manually opened, path mismatch → no restore
-            window._open_image(str(img_path))
+            # No region in history → no restore
             assert window._bbox is None
 
     def test_auto_open_on_startup(self, qtbot, tmp_path):

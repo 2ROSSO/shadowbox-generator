@@ -56,7 +56,6 @@ class GuiSettings:
 
     # --- Region (session state) ---
     region_image_path: str | None = None
-    region_selection: tuple[int, int, int, int] | None = None  # (x, y, w, h)
 
 
 def gui_to_shadowbox_settings(gs: GuiSettings):
@@ -133,8 +132,6 @@ def save_defaults(gs: GuiSettings) -> None:
     data = asdict(gs)
     # tuple → list (JSON互換)
     data["background_color"] = list(data["background_color"])
-    if data["region_selection"] is not None:
-        data["region_selection"] = list(data["region_selection"])
     _DEFAULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     _DEFAULTS_PATH.write_text(
         json.dumps(data, indent=2, ensure_ascii=False),
@@ -166,14 +163,74 @@ def load_defaults() -> GuiSettings | None:
     ):
         filtered["background_color"] = tuple(filtered["background_color"])
 
-    # region_selection: list → tuple
-    if "region_selection" in filtered and isinstance(
-        filtered["region_selection"], list
-    ):
-        filtered["region_selection"] = tuple(filtered["region_selection"])
-
     try:
         return GuiSettings(**filtered)
     except TypeError:
         logger.warning("Failed to construct GuiSettings from %s", _DEFAULTS_PATH)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Per-card region history
+# ---------------------------------------------------------------------------
+
+_REGION_HISTORY_PATH = Path.home() / ".shadowbox" / "region_history.json"
+_REGION_HISTORY_MAX = 200
+
+
+def _load_region_history() -> dict[str, list[int]]:
+    if not _REGION_HISTORY_PATH.exists():
+        return {}
+    try:
+        data = json.loads(
+            _REGION_HISTORY_PATH.read_text(encoding="utf-8")
+        )
+        if isinstance(data, dict):
+            return data
+    except (json.JSONDecodeError, OSError):
+        logger.warning(
+            "Failed to load region history from %s",
+            _REGION_HISTORY_PATH,
+        )
+    return {}
+
+
+def _save_region_history(history: dict[str, list[int]]) -> None:
+    _REGION_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _REGION_HISTORY_PATH.write_text(
+        json.dumps(history, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def save_region(
+    image_path: str, region: tuple[int, int, int, int]
+) -> None:
+    """画像パスに対応するリージョンを保存（LRU順）。"""
+    history = _load_region_history()
+    history.pop(image_path, None)
+    history[image_path] = list(region)
+    # LRU eviction: oldest entries first
+    while len(history) > _REGION_HISTORY_MAX:
+        oldest = next(iter(history))
+        del history[oldest]
+    _save_region_history(history)
+
+
+def load_region(
+    image_path: str,
+) -> tuple[int, int, int, int] | None:
+    """画像パスに対応するリージョンを読込。無ければ None。"""
+    history = _load_region_history()
+    value = history.get(image_path)
+    if value is not None and isinstance(value, list) and len(value) == 4:
+        return (value[0], value[1], value[2], value[3])
+    return None
+
+
+def remove_region(image_path: str) -> None:
+    """画像パスに対応するリージョンを削除。"""
+    history = _load_region_history()
+    if image_path in history:
+        del history[image_path]
+        _save_region_history(history)
