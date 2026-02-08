@@ -3794,19 +3794,11 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "einops" },
     { name = "ipykernel" },
     { name = "ipympl" },
     { name = "jupyter" },
-    { name = "omegaconf" },
-    { name = "onnxruntime" },
     { name = "plotly" },
-    { name = "pymatting" },
     { name = "pyqt6" },
-    { name = "pyrender" },
-    { name = "rembg" },
-    { name = "rtree" },
-    { name = "trimesh" },
 ]
 gui = [
     { name = "pyqt6" },
@@ -3858,7 +3850,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rtree", marker = "extra == 'triposr'", specifier = ">=1.0.0" },
     { name = "scikit-learn", specifier = ">=1.3.0" },
-    { name = "shadowbox-generator", extras = ["jupyter", "gui", "triposr"], marker = "extra == 'all'" },
+    { name = "shadowbox-generator", extras = ["jupyter", "gui"], marker = "extra == 'all'" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "transformers", specifier = ">=4.36.0" },
     { name = "trimesh", marker = "extra == 'triposr'", specifier = ">=4.0.0" },

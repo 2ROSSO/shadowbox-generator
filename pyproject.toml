@@ -42,8 +42,9 @@ gui = [
     "PyQt6>=6.5.0",
 ]
 triposr = [
-    # TripoSRの依存関係（TripoSR本体は別途手動インストールが必要）
-    # インストール手順:
+    # 試験搭載 (Experimental): 既存依存と競合する場合があります。
+    # 別の仮想環境での利用を推奨します。
+    # TripoSR本体は別途手動インストールが必要:
     #   git clone https://github.com/VAST-AI-Research/TripoSR.git
     #   pip install -r TripoSR/requirements.txt
     "trimesh>=4.0.0",     # Mesh processing
@@ -57,7 +58,8 @@ triposr = [
     # Note: pyrender requires OpenGL. Falls back to trimesh ray casting if unavailable.
 ]
 all = [
-    "shadowbox-generator[jupyter,gui,triposr]",
+    # triposr は試験搭載のため除外（明示的に --extra triposr で指定可能）
+    "shadowbox-generator[jupyter,gui]",
 ]
 
 [project.urls]

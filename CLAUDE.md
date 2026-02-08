@@ -12,7 +12,7 @@ TCG Shadowbox Generator transforms trading card game illustrations into interact
 # Install dependencies
 uv sync
 
-# Install with all optional dependencies (Jupyter + GUI + TripoSR)
+# Install with all optional dependencies (Jupyter + GUI)
 uv sync --all-extras
 
 # Run tests (required before commit)
@@ -287,6 +287,11 @@ uv run pytest tests/test_triposr.py -v
 - 大きな出力（画像、3Dレンダリング結果）はgitに含めない
 
 ## TripoSR Integration
+
+> **試験搭載 (Experimental)**: TripoSR の依存関係は既存の依存関係と競合する場合があります
+> （例: `opencv-python` vs `opencv-python-headless`、rembg 経由の numba/scipy）。
+> `uv sync --all-extras` には含まれません。明示的に `uv sync --extra triposr` で指定してください。
+> 別の仮想環境での利用を推奨します。
 
 ### Setup
 ```bash

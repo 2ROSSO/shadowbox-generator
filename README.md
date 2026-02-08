@@ -47,53 +47,7 @@ uv sync --all-extras
 | --------- | ---------------------------------- | ---------------------------------------------------- |
 | `jupyter` | jupyter, ipykernel, ipympl, plotly | Jupyter Notebook, **manual region selection**, **3D view** |
 | `gui`     | PyQt6                              | Standalone GUI app                                   |
-| `triposr` | trimesh, rtree, omegaconf, einops, pyrender, rembg, onnxruntime, pymatting | TripoSR 3D mesh generation (manual setup required) |
-| `all`     | All of the above                   | Full features                                        |
-
-### TripoSR Installation (Optional)
-
-To generate 3D meshes directly from a single image using TripoSR, follow these setup steps:
-
-#### Prerequisites (Windows)
-
-- **Visual Studio Build Tools** required (for building C++ extensions)
-- Install "Desktop development with C++" from [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-
-#### Setup Steps
-
-```bash
-# 1. Install dependencies
-uv sync --extra triposr
-
-# 2. Clone TripoSR (place in project root)
-git clone https://github.com/VAST-AI-Research/TripoSR.git
-
-# 3. Build and install torchmcubes (C++ extension)
-uv pip install scikit-build-core cmake ninja pybind11
-
-# On Windows, set CMAKE_PREFIX_PATH before building
-set CMAKE_PREFIX_PATH=.venv\Lib\site-packages\torch\share\cmake
-uv pip install git+https://github.com/tatsy/torchmcubes.git --no-build-isolation
-```
-
-> **Note**: The `TripoSR/` directory is auto-detected when placed in the project root. No manual PYTHONPATH configuration is needed.
-
-#### Usage
-
-```python
-from shadowbox import create_pipeline, ShadowboxSettings
-
-settings = ShadowboxSettings()
-settings.model_mode = "triposr"
-pipeline = create_pipeline(settings)
-result = pipeline.process(image)
-```
-
-#### Notes
-
-- `rembg` (background removal) is included in the `triposr` extra
-- The model (~1GB) is downloaded on first run
-- GPU (CUDA) recommended, but CPU is also supported (slower)
+| `all`     | jupyter + gui                      | All stable features                                  |
 
 > **Note**: The `jupyter` extra is required for these features in Jupyter Notebook:
 >
@@ -218,6 +172,53 @@ uv run ruff check src/
 # Run type checker
 uv run mypy src/
 ```
+
+## TripoSR Integration (Experimental)
+
+> **Warning**: This feature is experimental. Installing TripoSR dependencies (`uv sync --extra triposr`) may conflict with existing dependencies (e.g., `opencv-python` vs `opencv-python-headless`). Using a separate virtual environment is recommended.
+
+To generate 3D meshes directly from a single image using TripoSR, follow these setup steps:
+
+### Prerequisites (Windows)
+
+- **Visual Studio Build Tools** required (for building C++ extensions)
+- Install "Desktop development with C++" from [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+
+### Setup Steps
+
+```bash
+# 1. Install dependencies
+uv sync --extra triposr
+
+# 2. Clone TripoSR (place in project root)
+git clone https://github.com/VAST-AI-Research/TripoSR.git
+
+# 3. Build and install torchmcubes (C++ extension)
+uv pip install scikit-build-core cmake ninja pybind11
+
+# On Windows, set CMAKE_PREFIX_PATH before building
+set CMAKE_PREFIX_PATH=.venv\Lib\site-packages\torch\share\cmake
+uv pip install git+https://github.com/tatsy/torchmcubes.git --no-build-isolation
+```
+
+> **Note**: The `TripoSR/` directory is auto-detected when placed in the project root. No manual PYTHONPATH configuration is needed.
+
+### Usage
+
+```python
+from shadowbox import create_pipeline, ShadowboxSettings
+
+settings = ShadowboxSettings()
+settings.model_mode = "triposr"
+pipeline = create_pipeline(settings)
+result = pipeline.process(image)
+```
+
+### Notes
+
+- `rembg` (background removal) is included in the `triposr` extra
+- The model (~1GB) is downloaded on first run
+- GPU (CUDA) recommended, but CPU is also supported (slower)
 
 ## License
 
