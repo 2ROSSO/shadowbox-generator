@@ -56,18 +56,23 @@ src/shadowbox/
 │   ├── pipeline.py       # BasePipelineResult
 │   ├── mesh.py           # MeshGenerator, ShadowboxMesh
 │   ├── clustering.py     # KMeansLayerClusterer (shared)
+│   ├── depth_to_mesh.py  # DepthToMeshProcessor (shared depth→mesh)
 │   ├── frame_factory.py  # Frame generation (shared)
 │   └── back_panel_factory.py
 ├── depth/                # Depth estimation mode
 │   ├── __init__.py
 │   ├── pipeline.py       # DepthPipeline, PipelineResult
 │   └── estimator.py      # DepthEstimatorProtocol, implementations
-└── triposr/              # TripoSR mode
+├── triposr/              # TripoSR mode
+│   ├── __init__.py
+│   ├── pipeline.py       # TripoSRPipeline
+│   ├── generator.py      # TripoSRGenerator
+│   ├── settings.py       # TripoSRSettings
+│   ├── depth_recovery.py # MeshDepthExtractorProtocol
+│   └── mesh_splitter.py  # DepthBasedMeshSplitter
+└── utils/                # Utilities
     ├── __init__.py
-    ├── pipeline.py       # TripoSRPipeline
-    ├── generator.py      # TripoSRGenerator
-    ├── depth_recovery.py # MeshDepthExtractorProtocol
-    └── mesh_splitter.py  # DepthBasedMeshSplitter
+    └── image.py          # load_image(), crop_image(), image_to_array()
 ```
 
 ```
@@ -87,17 +92,23 @@ class DepthPipeline:
     def __init__(
         self,
         depth_estimator: DepthEstimatorProtocol,  # Protocol で型定義
-        clusterer: LayerClustererProtocol,
-        mesh_generator: MeshGeneratorProtocol,    # Protocol で型定義
-        config_loader: ConfigLoaderProtocol,
+        clusterer: LayerClustererProtocol | None = None,   # 後方互換
+        mesh_generator: MeshGeneratorProtocol | None = None,
+        config_loader: ConfigLoaderProtocol | None = None,
+        *,
+        depth_to_mesh: DepthToMeshProcessor | None = None,  # 推奨パス
     ) -> None:
         ...
 
 # create_pipeline() が依存関係を組み立てる
 def create_pipeline(settings: ShadowboxSettings) -> DepthPipeline:
-    depth_estimator = create_depth_estimator(settings.depth)
     clusterer = KMeansLayerClusterer(settings.clustering)
-    ...
+    mesh_generator = MeshGenerator(settings.render)
+    depth_to_mesh = DepthToMeshProcessor(clusterer, mesh_generator)
+    depth_estimator = create_depth_estimator(settings.depth)
+    return DepthPipeline(
+        depth_estimator, config_loader=config_loader, depth_to_mesh=depth_to_mesh
+    )
 ```
 
 ## Key Modules
@@ -108,17 +119,26 @@ def create_pipeline(settings: ShadowboxSettings) -> DepthPipeline:
 | `core/pipeline.py` | `BasePipelineResult` base class |
 | `core/clustering.py` | K-Means layer clustering with optimal k detection (shared) |
 | `core/mesh.py` | 3D mesh generation from depth layers |
+| `core/depth_to_mesh.py` | `DepthToMeshProcessor` — shared depth→mesh converter (convergence point) |
 | `core/frame_factory.py` | Frame generation (shared) |
 | `core/back_panel_factory.py` | Back panel generation (shared) |
 | `depth/estimator.py` | Depth estimation using Depth Anything v2 (swappable via Protocol) |
 | `depth/pipeline.py` | `DepthPipeline`, `PipelineResult` |
 | `triposr/generator.py` | TripoSR 3D mesh generation (alternative to depth+clustering) |
 | `triposr/pipeline.py` | TripoSR pipeline wrapper |
+| `triposr/settings.py` | `TripoSRSettings` dataclass |
 | `triposr/depth_recovery.py` | 3Dメッシュから深度マップを復元 (MeshDepthExtractorProtocol) |
 | `triposr/mesh_splitter.py` | 深度クラスタリングに基づくメッシュ分割 |
-| `detection/region.py` | Auto-detect illustration area |
+| `detection/region.py` | Auto-detect illustration area (10 ensemble methods) |
+| `gui/app.py` | `ShadowboxApp` (QMainWindow) — main GUI application |
+| `gui/i18n.py` | Internationalization (English / Japanese) |
+| `gui/processing.py` | Background processing thread |
+| `gui/region_selector.py` | PyQt6 native region selection overlay |
+| `gui/settings_bridge.py` | GUI settings persistence (save/load defaults) |
 | `gui/template_editor.py` | Manual region selection GUI |
 | `gui/image_selector.py` | Image gallery with index selection |
+| `gui/widgets/` | Settings tabs (ProcessingTab, LayersTab, FrameTab, RenderingTab, etc.) |
+| `utils/image.py` | `load_image()`, `crop_image()`, `image_to_array()` |
 | `visualization/render.py` | Vedo-based 3D renderer |
 | `visualization/export.py` | STL/OBJ/PLY export |
 
@@ -126,16 +146,9 @@ def create_pipeline(settings: ShadowboxSettings) -> DepthPipeline:
 
 ### Depth Mode (default)
 ```
-Image → Crop → Depth estimation → Clustering → Mesh generation → 3D render
-          ↓           ↓                ↓              ↓
-      BoundingBox  depth map       k layers      ShadowboxMesh
-```
-
-### TripoSR Mode
-```
-Image → Crop → TripoSR model → 3D mesh → ShadowboxMesh → 3D render
-          ↓                       ↓
-      BoundingBox            trimesh object
+Image → Crop → Depth estimation → DepthToMeshProcessor → ShadowboxMesh → 3D render
+          ↓           ↓                    ↓
+      BoundingBox  depth map     clustering + mesh generation
 ```
 
 ### TripoSR Mode (深度復元+レイヤー分割)
@@ -146,13 +159,13 @@ Image → Crop → TripoSR model → trimesh
                                  ↓
                             depth_map
                                  ↓
-                  LayerClustererProtocol.cluster()
-                                 ↓
-                  DepthBasedMeshSplitter.split()
+                  DepthToMeshProcessor.process()
                                  ↓
                      ShadowboxMesh (k layers)
 ```
-**注意**: `LayerClustererProtocol` は Depth モードと共通で使用されます。
+
+**注意**: 両モードとも `DepthToMeshProcessor` に収束します。
+`DepthToMeshProcessor` は内部で `LayerClustererProtocol` と `MeshGeneratorProtocol` を使用します。
 
 ## Protocol Interfaces
 
@@ -337,6 +350,7 @@ uv pip install git+https://github.com/tatsy/torchmcubes.git --no-build-isolation
 5. **Factory を更新** - `create_pipeline()` で新モードの分岐を追加
 6. **テストを作成** - `tests/test_newmode.py`
 7. **再利用可能なコンポーネント**:
+   - `DepthToMeshProcessor` - 深度マップ→ShadowboxMesh（共有収束点）
    - `LayerClustererProtocol` - 深度マップのクラスタリング
    - `MeshDepthExtractorProtocol` - 3Dメッシュからの深度復元
    - `DepthBasedMeshSplitter` - メッシュのレイヤー分割

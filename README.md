@@ -7,9 +7,11 @@ Transform TCG card illustrations into interactive 3D shadowbox displays using AI
 ## Features
 
 - **Depth Estimation**: Uses Depth Anything v2 (lightweight, Apache 2.0 license)
-- **Auto/Manual Region Selection**: Automatically detect or manually select illustration areas
+- **Auto/Manual Region Selection**: 10 ensemble detection methods with confidence scoring, or manual selection
 - **Layer Clustering**: Automatically finds optimal number of layers using silhouette analysis
 - **Contour Cut Mode**: Depth-based contour masking for natural layer shapes (front layers narrow, back layers wide)
+- **Mesh Export**: Export to STL, OBJ, and PLY formats for 3D printing or external tools
+- **GUI App (PyQt6)**: Region selection, parameter tuning, 3D preview, and mesh export with bilingual UI (English / Japanese)
 - **Interactive 3D View**: Rotate and explore shadowbox with mouse
 - **Multiple Input Methods**: Load from URL or select from local directory gallery
 - **Template System**: Save and reuse card templates (Pokemon, MTG, etc.)
@@ -45,7 +47,7 @@ uv sync --all-extras
 | --------- | ---------------------------------- | ---------------------------------------------------- |
 | `jupyter` | jupyter, ipykernel, ipympl, plotly | Jupyter Notebook, **manual region selection**, **3D view** |
 | `gui`     | PyQt6                              | Standalone GUI app                                   |
-| `triposr` | trimesh, omegaconf, einops         | TripoSR 3D mesh generation (manual setup required)   |
+| `triposr` | trimesh, rtree, omegaconf, einops, pyrender, rembg, onnxruntime, pymatting | TripoSR 3D mesh generation (manual setup required) |
 | `all`     | All of the above                   | Full features                                        |
 
 ### TripoSR Installation (Optional)
@@ -152,21 +154,21 @@ TCG Shadowbox Generator supports two 3D generation modes:
 Estimates a depth map from the image and splits it into layers via clustering.
 
 ```
-Image → Depth Estimation → Clustering → Mesh Generation → 3D View
-              ↓                ↓              ↓
-          depth map       k layers      ShadowboxMesh
+Image → Depth Estimation → DepthToMeshProcessor → ShadowboxMesh → 3D View
+              ↓                    ↓
+          depth map      clustering + mesh generation
 ```
 
 ### TripoSR Mode
 Generates a 3D mesh directly from a single image, then recovers depth for layer splitting.
 
 ```
-Image → TripoSR → 3D Mesh → Depth Recovery → Clustering → Layer Split
-                     ↓            ↓              ↓
-                 trimesh     depth map       k layers
+Image → TripoSR → 3D Mesh → Depth Recovery → DepthToMeshProcessor → ShadowboxMesh
+                     ↓            ↓                    ↓
+                 trimesh     depth map       clustering + mesh generation
 ```
 
-**Shared Components**: Both modes share `LayerClusterer` (clustering) and Frame/BackPanel (frame generation).
+**Shared Components**: Both modes converge on `DepthToMeshProcessor`, which handles clustering (`LayerClusterer`) and mesh generation. Frame/BackPanel factories are also shared.
 
 See `docs/architecture_analysis.md` for detailed architecture analysis.
 
@@ -179,8 +181,9 @@ shadowbox-generator/
 │   ├── config/         # Settings and templates
 │   ├── triposr/        # TripoSR integration (generator, depth recovery, mesh splitter)
 │   ├── visualization/  # 2D/3D rendering
-│   ├── detection/      # Auto region detection
-│   └── gui/            # GUI components
+│   ├── detection/      # Auto region detection (10 ensemble methods)
+│   ├── gui/            # PyQt6 GUI app with widget tabs
+│   └── utils/          # Image loading and processing utilities
 ├── notebooks/          # Jupyter notebooks
 ├── data/templates/     # Card templates (YAML)
 ├── docs/               # Architecture documentation

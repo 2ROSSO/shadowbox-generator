@@ -7,9 +7,11 @@ TCGカードのイラストをAI深度推定で解析し、インタラクティ
 ## 特徴
 
 - **深度推定**: Depth Anything v2 を使用（軽量・高精度、Apache 2.0 ライセンス）
-- **自動/手動領域選択**: イラスト領域の自動検出または手動選択
+- **自動/手動領域選択**: 10種のアンサンブル検出メソッドによる信頼度付き自動検出、または手動選択
 - **レイヤークラスタリング**: シルエット分析による最適レイヤー数の自動探索
 - **等高線カットモード**: 生深度の等高線でレイヤー形状を切り取り（手前は狭く、奥は広い自然な形状）
+- **メッシュエクスポート**: STL、OBJ、PLY形式での出力（3Dプリントや外部ツール連携）
+- **GUIアプリ（PyQt6）**: 領域選択、パラメータ調整、3Dプレビュー、メッシュエクスポート対応。日英バイリンガルUI
 - **インタラクティブ3D表示**: マウスで回転・ズームして3Dシャドーボックスを探索
 - **複数の入力方法**: URLまたはローカルディレクトリのギャラリーから読み込み
 - **テンプレートシステム**: カードテンプレートの保存・再利用（ポケモン、MTG など）
@@ -45,7 +47,7 @@ uv sync --all-extras
 | ---------- | ---------------------------------- | --------------------------------------------------------- |
 | `jupyter`  | jupyter, ipykernel, ipympl, plotly | Jupyter Notebook での実行、**手動領域選択**、**3Dビュー** |
 | `gui`      | PyQt6                              | スタンドアロンGUIアプリ                                   |
-| `triposr`  | trimesh, omegaconf, einops         | TripoSRによる3Dメッシュ生成（別途手動インストール必要）   |
+| `triposr`  | trimesh, rtree, omegaconf, einops, pyrender, rembg, onnxruntime, pymatting | TripoSRによる3Dメッシュ生成（別途手動インストール必要） |
 | `all`      | 上記すべて                         | フル機能                                                  |
 
 ### TripoSR のインストール（オプション）
@@ -153,21 +155,21 @@ TCG Shadowbox Generator は2つの3D生成モードをサポートしていま�
 画像から深度マップを推定し、クラスタリングでレイヤーに分割します。
 
 ```
-Image → Depth Estimation → Clustering → Mesh Generation → 3D View
-              ↓                ↓              ↓
-          depth map       k layers      ShadowboxMesh
+Image → Depth Estimation → DepthToMeshProcessor → ShadowboxMesh → 3D View
+              ↓                    ↓
+          depth map      クラスタリング + メッシュ生成
 ```
 
 ### TripoSR モード
 単一画像から直接3Dメッシュを生成し、深度復元でレイヤー化します。
 
 ```
-Image → TripoSR → 3D Mesh → Depth Recovery → Clustering → Layer Split
-                     ↓            ↓              ↓
-                 trimesh     depth map       k layers
+Image → TripoSR → 3D Mesh → Depth Recovery → DepthToMeshProcessor → ShadowboxMesh
+                     ↓            ↓                    ↓
+                 trimesh     depth map       クラスタリング + メッシュ生成
 ```
 
-**共通コンポーネント**: 両モードで `LayerClusterer`（クラスタリング）と Frame/BackPanel（フレーム生成）を共有しています。
+**共通コンポーネント**: 両モードは `DepthToMeshProcessor` に収束し、クラスタリング（`LayerClusterer`）とメッシュ生成を共有しています。Frame/BackPanel ファクトリーも共通です。
 
 詳細なアーキテクチャ分析は `docs/architecture_analysis.md` を参照してください。
 
@@ -180,8 +182,9 @@ shadowbox-generator/
 │   ├── config/         # 設定とテンプレート
 │   ├── triposr/        # TripoSR統合（生成器、深度復元、メッシュ分割）
 │   ├── visualization/  # 2D/3Dレンダリング
-│   ├── detection/      # 自動領域検出
-│   └── gui/            # GUIコンポーネント
+│   ├── detection/      # 自動領域検出（10種のアンサンブルメソッド）
+│   ├── gui/            # PyQt6 GUIアプリ（ウィジェットタブ構成）
+│   └── utils/          # 画像読み込み・処理ユーティリティ
 ├── notebooks/          # Jupyter ノートブック
 ├── data/templates/     # カードテンプレート（YAML）
 ├── docs/               # アーキテクチャドキュメント
