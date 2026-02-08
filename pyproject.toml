@@ -63,8 +63,8 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/2ROSSO/shadowbox-generator"
-Repository = "https://github.com/2ROSSO/shadowbox-generator"
+Homepage = "https://github.com/2ROSSO/tcg-shadowbox-generator"
+Repository = "https://github.com/2ROSSO/tcg-shadowbox-generator"
 
 [project.scripts]
 shadowbox = "shadowbox.cli:main"

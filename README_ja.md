@@ -20,8 +20,8 @@ TCGカードのイラストをAI深度推定で解析し、インタラクティ
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/2ROSSO/shadowbox-generator.git
-cd shadowbox-generator
+git clone https://github.com/2ROSSO/tcg-shadowbox-generator.git
+cd tcg-shadowbox-generator
 
 # uv でインストール（推奨）
 uv sync
@@ -129,7 +129,7 @@ Image → TripoSR → 3D Mesh → Depth Recovery → DepthToMeshProcessor → Sh
 ## プロジェクト構成
 
 ```text
-shadowbox-generator/
+tcg-shadowbox-generator/
 ├── src/shadowbox/
 │   ├── core/           # パイプライン、深度、クラスタリング、メッシュ
 │   ├── config/         # 設定とテンプレート

@@ -20,8 +20,8 @@ Transform TCG card illustrations into interactive 3D shadowbox displays using AI
 
 ```bash
 # Clone the repository
-git clone https://github.com/2ROSSO/shadowbox-generator.git
-cd shadowbox-generator
+git clone https://github.com/2ROSSO/tcg-shadowbox-generator.git
+cd tcg-shadowbox-generator
 
 # Install with uv (recommended)
 uv sync
@@ -129,7 +129,7 @@ See `docs/architecture_analysis.md` for detailed architecture analysis.
 ## Project Structure
 
 ```text
-shadowbox-generator/
+tcg-shadowbox-generator/
 ├── src/shadowbox/
 │   ├── core/           # Pipeline, depth, clustering, mesh
 │   ├── config/         # Settings and templates
