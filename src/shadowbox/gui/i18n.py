@@ -86,6 +86,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         ),
     },
     "dialog.pick_bg_color": {"en": "Choose Background Color", "ja": "背景色を選択"},
+    "dialog.clear_region": {"en": "Region Selection", "ja": "領域選択"},
+    "dialog.clear_region_q": {
+        "en": "This image has no saved region.\nClear the current selection?",
+        "ja": "この画像には保存済みの領域がありません。\n現在の選択を解除しますか？",
+    },
     # ---- Tabs (image preview) ----
     "tab.original": {"en": "Original", "ja": "元画像"},
     "tab.depth": {"en": "Depth", "ja": "深度"},

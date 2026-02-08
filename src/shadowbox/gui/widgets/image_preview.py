@@ -246,6 +246,19 @@ class ImagePreview(QWidget):
             ]
         self._update_legend()
 
+    def has_region(self) -> bool:
+        """選択領域があるかどうか。"""
+        return self._region_selector.get_selection() is not None
+
+    def get_region(self) -> tuple[int, int, int, int] | None:
+        """現在の選択領域を画像座標で返す。"""
+        return self._region_selector.get_selection()
+
+    def reset_region(self) -> None:
+        """選択をクリアし、領域選択モードを解除（シグナル発行あり）。"""
+        self._region_selector.clear_selection()
+        self._region_selector.set_active(False)
+
     def restore_region(self, x: int, y: int, w: int, h: int) -> None:
         """保存済み選択領域を復元。"""
         self._region_selector.set_selection(x, y, w, h)

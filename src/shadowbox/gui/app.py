@@ -226,6 +226,27 @@ class ShadowboxApp(QMainWindow):
                 )
                 # Restore saved region if path matches
                 self._try_restore_region()
+                # Ask to clear stale region overlay
+                if self._bbox is None and self.image_preview.has_region():
+                    reply = QMessageBox.question(
+                        self,
+                        tr("dialog.clear_region"),
+                        tr("dialog.clear_region_q"),
+                        QMessageBox.StandardButton.Yes
+                        | QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.image_preview.reset_region()
+                    else:
+                        # Keep visual region and adopt it as bbox
+                        sel = self.image_preview.get_region()
+                        if sel is not None:
+                            from shadowbox.config.template import BoundingBox
+
+                            x, y, w, h = sel
+                            self._bbox = BoundingBox(
+                                x=x, y=y, width=w, height=h
+                            )
                 self._save_current_defaults()
             except Exception as e:
                 QMessageBox.critical(
