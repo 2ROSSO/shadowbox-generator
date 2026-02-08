@@ -212,6 +212,7 @@ class ShadowboxApp(QMainWindow):
             )
         if file_path:
             try:
+                self._save_current_defaults()
                 self._image_path = file_path
                 self._image_stem = Path(file_path).stem
                 self._image = Image.open(file_path).convert("RGB")
@@ -225,6 +226,7 @@ class ShadowboxApp(QMainWindow):
                 )
                 # Restore saved region if path matches
                 self._try_restore_region()
+                self._save_current_defaults()
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -478,6 +480,15 @@ class ShadowboxApp(QMainWindow):
             and Path(self._initial_settings.region_image_path).is_file()
         ):
             self._open_image(self._initial_settings.region_image_path)
+
+    def _save_current_defaults(self) -> None:
+        """現在のGUI設定を自動保存し、initial_settingsを更新。"""
+        from shadowbox.gui.settings_bridge import save_defaults
+
+        current = self.settings_panel.get_gui_settings()
+        current.region_image_path = self._image_path
+        save_defaults(current)
+        self._initial_settings = current
 
     def closeEvent(self, event) -> None:  # noqa: N802
         from dataclasses import asdict
