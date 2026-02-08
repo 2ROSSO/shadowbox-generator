@@ -26,15 +26,15 @@ class GuiSettings:
     use_mock_depth: bool = False
     use_raw_depth: bool = False
     depth_scale: float = 1.0
-    num_layers: int | None = None  # None = auto
-    max_resolution: int | None = None  # None = unlimited
+    num_layers: int | None = 5  # None = auto
+    max_resolution: int | None = 300  # None = unlimited
     detection_method: str = "auto"
 
     # --- Layers (RenderSettings) ---
     cumulative_layers: bool = True
     back_panel: bool = True
-    layer_interpolation: int = 1
-    layer_pop_out: float = 0.2
+    layer_interpolation: int = 4
+    layer_pop_out: float = 0.50
     layer_spacing_mode: Literal["even", "proportional"] = "proportional"
     layer_mask_mode: Literal["cluster", "contour"] = "contour"
     layer_thickness: float = 0.2

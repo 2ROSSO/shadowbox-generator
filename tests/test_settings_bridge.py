@@ -27,11 +27,11 @@ class TestGuiSettingsDefaults:
 
     def test_layer_interpolation_default(self) -> None:
         gs = GuiSettings()
-        assert gs.layer_interpolation == 1
+        assert gs.layer_interpolation == 4
 
     def test_layer_pop_out_default(self) -> None:
         gs = GuiSettings()
-        assert gs.layer_pop_out == 0.2
+        assert gs.layer_pop_out == 0.50
 
     def test_layer_spacing_mode_default(self) -> None:
         gs = GuiSettings()

@@ -82,8 +82,8 @@ class TestGuiToProcessKwargs:
         assert kw["use_raw_depth"] is False
         assert kw["depth_scale"] == 1.0
         assert "auto_detect" not in kw
-        assert "k" not in kw
-        assert "max_resolution" not in kw
+        assert kw["k"] == 5
+        assert kw["max_resolution"] == 300
 
     def test_num_layers_set(self):
         gs = GuiSettings(num_layers=5)
