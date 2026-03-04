@@ -23,12 +23,15 @@ class FrameConfig:
         z_back: フレーム背面のZ座標。Noneの場合は壁なしフレーム。
         margin: フレーム外側のマージン（イラスト領域からのはみ出し量）。
         frame_color: フレームの色（RGB、0-255）。
+        aspect_scale: アスペクト比スケール (scale_x, scale_y)。
+            長辺が1.0、短辺が(短辺/長辺)。
     """
 
     z_front: float = 0.0
     z_back: float | None = None
     margin: float = 0.05
     frame_color: tuple[int, int, int] = (30, 30, 30)
+    aspect_scale: tuple[float, float] = (1.0, 1.0)
 
 
 def create_frame(config: FrameConfig) -> FrameMesh:
@@ -58,20 +61,23 @@ def create_plane_frame(config: FrameConfig) -> FrameMesh:
     Returns:
         FrameMeshオブジェクト（has_walls=False）。
     """
-    outer = 1.0 + config.margin
-    inner = 1.0
+    sx, sy = config.aspect_scale
+    outer_x = (1.0 + config.margin) * sx
+    outer_y = (1.0 + config.margin) * sy
+    inner_x = 1.0 * sx
+    inner_y = 1.0 * sy
     z = config.z_front
 
     # 8頂点: 外側4 + 内側4
     vertices = np.array([
-        [-outer, -outer, z],  # 0: 外側左下
-        [+outer, -outer, z],  # 1: 外側右下
-        [+outer, +outer, z],  # 2: 外側右上
-        [-outer, +outer, z],  # 3: 外側左上
-        [-inner, -inner, z],  # 4: 内側左下
-        [+inner, -inner, z],  # 5: 内側右下
-        [+inner, +inner, z],  # 6: 内側右上
-        [-inner, +inner, z],  # 7: 内側左上
+        [-outer_x, -outer_y, z],  # 0: 外側左下
+        [+outer_x, -outer_y, z],  # 1: 外側右下
+        [+outer_x, +outer_y, z],  # 2: 外側右上
+        [-outer_x, +outer_y, z],  # 3: 外側左上
+        [-inner_x, -inner_y, z],  # 4: 内側左下
+        [+inner_x, -inner_y, z],  # 5: 内側右下
+        [+inner_x, +inner_y, z],  # 6: 内側右上
+        [-inner_x, +inner_y, z],  # 7: 内側左上
     ], dtype=np.float32)
 
     # 8三角形: 下辺・右辺・上辺・左辺 各2三角形
@@ -112,28 +118,31 @@ def create_walled_frame(config: FrameConfig) -> FrameMesh:
     if config.z_back is None:
         raise ValueError("z_back must be specified for walled frame")
 
-    outer = 1.0 + config.margin
-    inner = 1.0
+    sx, sy = config.aspect_scale
+    outer_x = (1.0 + config.margin) * sx
+    outer_y = (1.0 + config.margin) * sy
+    inner_x = 1.0 * sx
+    inner_y = 1.0 * sy
     z_front = config.z_front
     z_back = config.z_back
 
     # 12頂点: 前面外側4 + 前面内側4 + 背面外側4
     vertices = np.array([
         # 前面外側 (0-3)
-        [-outer, -outer, z_front],
-        [+outer, -outer, z_front],
-        [+outer, +outer, z_front],
-        [-outer, +outer, z_front],
+        [-outer_x, -outer_y, z_front],
+        [+outer_x, -outer_y, z_front],
+        [+outer_x, +outer_y, z_front],
+        [-outer_x, +outer_y, z_front],
         # 前面内側 (4-7)
-        [-inner, -inner, z_front],
-        [+inner, -inner, z_front],
-        [+inner, +inner, z_front],
-        [-inner, +inner, z_front],
+        [-inner_x, -inner_y, z_front],
+        [+inner_x, -inner_y, z_front],
+        [+inner_x, +inner_y, z_front],
+        [-inner_x, +inner_y, z_front],
         # 背面外側 (8-11)
-        [-outer, -outer, z_back],
-        [+outer, -outer, z_back],
-        [+outer, +outer, z_back],
-        [-outer, +outer, z_back],
+        [-outer_x, -outer_y, z_back],
+        [+outer_x, -outer_y, z_back],
+        [+outer_x, +outer_y, z_back],
+        [-outer_x, +outer_y, z_back],
     ], dtype=np.float32)
 
     # 16三角形: 前面枠8 + 外壁8

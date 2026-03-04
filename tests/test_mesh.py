@@ -113,11 +113,11 @@ class TestMeshGenerator:
         assert mesh.layers[1].z_position < 0
 
     def test_vertex_coordinates_normalized(self) -> None:
-        """頂点座標が[-1, 1]に正規化されることをテスト。"""
+        """頂点座標がアスペクト比を保持して正規化されることをテスト。"""
         settings = RenderSettings()
         generator = MeshGenerator(settings)
 
-        # 10x20の画像（幅20、高さ10）
+        # 10x20の画像（幅20、高さ10）→ 横長: X=[-1,1], Y=[-0.5,0.5]
         image = np.zeros((10, 20, 3), dtype=np.uint8)
         labels = np.zeros((10, 20), dtype=np.int32)
         centroids = np.array([0.5], dtype=np.float32)
@@ -126,13 +126,53 @@ class TestMeshGenerator:
 
         vertices = mesh.layers[0].vertices
 
-        # X座標は[-1, 1]の範囲
-        assert vertices[:, 0].min() >= -1.0
-        assert vertices[:, 0].max() <= 1.0
+        # X座標（長辺）は[-1, 1]の範囲
+        assert vertices[:, 0].min() == pytest.approx(-1.0, abs=0.01)
+        assert vertices[:, 0].max() == pytest.approx(1.0, abs=0.01)
 
-        # Y座標は[-1, 1]の範囲
-        assert vertices[:, 1].min() >= -1.0
-        assert vertices[:, 1].max() <= 1.0
+        # Y座標（短辺）は[-0.5, 0.5]の範囲
+        assert vertices[:, 1].min() == pytest.approx(-0.5, abs=0.01)
+        assert vertices[:, 1].max() == pytest.approx(0.5, abs=0.01)
+
+    def test_vertex_coordinates_portrait(self) -> None:
+        """縦長画像でアスペクト比が保持されることをテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        # 20x10の画像（幅10、高さ20）→ 縦長: X=[-0.5,0.5], Y=[-1,1]
+        image = np.zeros((20, 10, 3), dtype=np.uint8)
+        labels = np.zeros((20, 10), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        vertices = mesh.layers[0].vertices
+
+        # X座標（短辺）は[-0.5, 0.5]の範囲
+        assert vertices[:, 0].min() == pytest.approx(-0.5, abs=0.01)
+        assert vertices[:, 0].max() == pytest.approx(0.5, abs=0.01)
+
+        # Y座標（長辺）は[-1, 1]の範囲
+        assert vertices[:, 1].min() == pytest.approx(-1.0, abs=0.01)
+        assert vertices[:, 1].max() == pytest.approx(1.0, abs=0.01)
+
+    def test_vertex_coordinates_square(self) -> None:
+        """正方形画像では[-1,1]のまま変わらないことをテスト。"""
+        settings = RenderSettings()
+        generator = MeshGenerator(settings)
+
+        image = np.zeros((10, 10, 3), dtype=np.uint8)
+        labels = np.zeros((10, 10), dtype=np.int32)
+        centroids = np.array([0.5], dtype=np.float32)
+
+        mesh = generator.generate(image, labels, centroids, include_frame=False)
+
+        vertices = mesh.layers[0].vertices
+
+        assert vertices[:, 0].min() == pytest.approx(-1.0, abs=0.01)
+        assert vertices[:, 0].max() == pytest.approx(1.0, abs=0.01)
+        assert vertices[:, 1].min() == pytest.approx(-1.0, abs=0.01)
+        assert vertices[:, 1].max() == pytest.approx(1.0, abs=0.01)
 
     def test_colors_preserved(self) -> None:
         """色情報が正しく保存されることをテスト。"""

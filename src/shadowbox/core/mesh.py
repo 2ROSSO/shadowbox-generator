@@ -16,6 +16,24 @@ from numpy.typing import NDArray
 from shadowbox.config.settings import RenderSettings
 
 
+def _aspect_scale(w: int, h: int) -> tuple[float, float]:
+    """画像のアスペクト比に基づくスケール係数を返す。
+
+    長辺を1.0、短辺を(短辺/長辺)にスケーリングする。
+
+    Args:
+        w: 画像の幅。
+        h: 画像の高さ。
+
+    Returns:
+        (scale_x, scale_y) のタプル。
+    """
+    if w >= h:
+        return 1.0, h / w if w > 0 else 1.0
+    else:
+        return w / h if h > 0 else 1.0, 1.0
+
+
 class MeshGeneratorProtocol(Protocol):
     """メッシュジェネレーターのプロトコル（DIインターフェース）。
 
@@ -325,15 +343,16 @@ class MeshGenerator:
             ShadowboxMeshオブジェクト（1レイヤーのみ）。
         """
         h, w = image.shape[:2]
+        scale_x, scale_y = _aspect_scale(w, h)
 
         # 全ピクセルの座標を取得
         y_coords, x_coords = np.mgrid[0:h, 0:w]
         y_coords = y_coords.flatten()
         x_coords = x_coords.flatten()
 
-        # 座標を[-1, 1]の範囲に正規化
-        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
-        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+        # 座標を[-scale, scale]の範囲に正規化（アスペクト比保持）
+        vertices_x = ((x_coords / (w - 1)) * 2 - 1) * scale_x if w > 1 else np.zeros_like(x_coords)
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) * scale_y if h > 1 else np.zeros_like(y_coords)
 
         # Z座標: depth=0（近い）が手前、depth=1（遠い）が奥
         # フレームがz=0なので、イラストはその奥（負の値）
@@ -404,9 +423,12 @@ class MeshGenerator:
         """
         from shadowbox.core.frame_factory import FrameConfig, create_frame
 
+        h, w = image_shape[:2]
+        scale_x, scale_y = _aspect_scale(w, h)
         config = FrameConfig(
             z_front=self._settings.frame_z,
             z_back=z_back,
+            aspect_scale=(scale_x, scale_y),
         )
         return create_frame(config)
 
@@ -430,7 +452,9 @@ class MeshGenerator:
         """
         from shadowbox.core.back_panel_factory import create_back_panel
 
-        return create_back_panel(image, z, layer_index)
+        h, w = image.shape[:2]
+        scale_x, scale_y = _aspect_scale(w, h)
+        return create_back_panel(image, z, layer_index, aspect_scale=(scale_x, scale_y))
 
     def _create_frame_only_layer(
         self,
@@ -457,6 +481,7 @@ class MeshGenerator:
         mask = labels == -1
 
         h, w = mask.shape
+        scale_x, scale_y = _aspect_scale(w, h)
 
         # マスクされたピクセルの座標を取得
         y_coords, x_coords = np.where(mask)
@@ -471,9 +496,9 @@ class MeshGenerator:
                 pixel_indices=np.array([], dtype=np.int32).reshape(0, 2),
             )
 
-        # 座標を[-1, 1]の範囲に正規化
-        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
-        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+        # 座標を[-scale, scale]の範囲に正規化（アスペクト比保持）
+        vertices_x = ((x_coords / (w - 1)) * 2 - 1) * scale_x if w > 1 else np.zeros_like(x_coords)
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) * scale_y if h > 1 else np.zeros_like(y_coords)
         vertices_z = np.full_like(vertices_x, z)
 
         vertices = np.stack([vertices_x, vertices_y, vertices_z], axis=1).astype(np.float32)
@@ -537,6 +562,7 @@ class MeshGenerator:
             mask = labels == layer_index
 
         h, w = mask.shape
+        scale_x, scale_y = _aspect_scale(w, h)
 
         # マスクされたピクセルの座標を取得
         y_coords, x_coords = np.where(mask)
@@ -551,11 +577,11 @@ class MeshGenerator:
                 pixel_indices=np.array([], dtype=np.int32).reshape(0, 2),
             )
 
-        # 座標を[-1, 1]の範囲に正規化
-        # X: 左端が-1、右端が+1
-        vertices_x = (x_coords / (w - 1)) * 2 - 1 if w > 1 else np.zeros_like(x_coords)
-        # Y: 上端が+1、下端が-1（画像座標系からOpenGL座標系への変換）
-        vertices_y = -((y_coords / (h - 1)) * 2 - 1) if h > 1 else np.zeros_like(y_coords)
+        # 座標を[-scale, scale]の範囲に正規化（アスペクト比保持）
+        # X: 左端が-scale_x、右端が+scale_x
+        vertices_x = ((x_coords / (w - 1)) * 2 - 1) * scale_x if w > 1 else np.zeros_like(x_coords)
+        # Y: 上端が+scale_y、下端が-scale_y（画像座標系からOpenGL座標系への変換）
+        vertices_y = -((y_coords / (h - 1)) * 2 - 1) * scale_y if h > 1 else np.zeros_like(y_coords)
         # Z: 指定されたレイヤー位置
         vertices_z = np.full_like(vertices_x, z)
 
@@ -588,7 +614,12 @@ class MeshGenerator:
         """
         from shadowbox.core.frame_factory import FrameConfig, create_frame
 
-        config = FrameConfig(z_front=self._settings.frame_z)
+        h, w = image_shape[:2]
+        scale_x, scale_y = _aspect_scale(w, h)
+        config = FrameConfig(
+            z_front=self._settings.frame_z,
+            aspect_scale=(scale_x, scale_y),
+        )
         return create_frame(config)
 
     def _create_frame_mesh_with_walls(
@@ -610,9 +641,12 @@ class MeshGenerator:
         """
         from shadowbox.core.frame_factory import FrameConfig, create_frame
 
+        h, w = image_shape[:2]
+        scale_x, scale_y = _aspect_scale(w, h)
         config = FrameConfig(
             z_front=self._settings.frame_z,
             z_back=-self._settings.frame_depth,
+            aspect_scale=(scale_x, scale_y),
         )
         return create_frame(config)
 
