@@ -71,6 +71,8 @@ class ShadowboxApp(QMainWindow):
         self._result = None
         self._bbox: BoundingBox | None = None
         self._thread = None
+        self._converted_image: Image.Image | None = None
+        self._ai_convert_thread = None
         self._viewer_renderer = None
 
         self._init_ui()
@@ -109,6 +111,7 @@ class ShadowboxApp(QMainWindow):
         right_layout.addWidget(self.settings_panel, stretch=1)
 
         self.action_buttons = ActionButtons()
+        self.action_buttons.ai_convert_clicked.connect(self._ai_convert_image)
         self.action_buttons.generate_clicked.connect(self._process_image)
         self.action_buttons.view_3d_clicked.connect(self._show_3d_view)
         self.action_buttons.export_clicked.connect(self._export_mesh)
@@ -219,6 +222,8 @@ class ShadowboxApp(QMainWindow):
                 self.image_preview.set_image(self._image)
                 self.action_buttons.set_has_image(True)
                 self._result = None
+                self._converted_image = None
+                self.image_preview.clear_converted()
                 self.action_buttons.set_has_result(False)
                 self._bbox = None
                 self._status_bar.showMessage(
@@ -254,6 +259,63 @@ class ShadowboxApp(QMainWindow):
                     tr("dialog.error"),
                     tr("dialog.load_failed", error=e),
                 )
+
+    # ---- AI Convert ----
+
+    def _ai_convert_image(self) -> None:
+        import os
+
+        from dotenv import load_dotenv
+
+        from shadowbox.gui.i18n import tr
+
+        load_dotenv()
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            QMessageBox.warning(
+                self,
+                tr("dialog.error"),
+                tr("dialog.no_api_key"),
+            )
+            return
+
+        if self._image is None:
+            return
+
+        self.action_buttons.ai_convert_btn.setEnabled(False)
+        self._progress_bar.setVisible(True)
+        self._progress_bar.setRange(0, 0)
+        self._status_bar.showMessage(tr("status.converting"))
+
+        from shadowbox.gui.ai_convert import AIConvertThread
+
+        thread = AIConvertThread(self._image, api_key)
+        thread.finished.connect(self._on_ai_convert_finished)
+        thread.error.connect(self._on_ai_convert_error)
+        self._ai_convert_thread = thread
+        thread.start()
+
+    def _on_ai_convert_finished(self, image: Image.Image) -> None:
+        from shadowbox.gui.i18n import tr
+
+        self._converted_image = image
+        self.image_preview.set_converted_image(image)
+        self._progress_bar.setVisible(False)
+        self.action_buttons.ai_convert_btn.setEnabled(True)
+        self._status_bar.showMessage(tr("status.converted"))
+        # Switch to converted tab
+        self.image_preview._switch_tab("converted")
+
+    def _on_ai_convert_error(self, msg: str) -> None:
+        from shadowbox.gui.i18n import tr
+
+        self._progress_bar.setVisible(False)
+        self.action_buttons.ai_convert_btn.setEnabled(True)
+        QMessageBox.critical(
+            self,
+            tr("dialog.error"),
+            tr("dialog.convert_failed", error=msg),
+        )
 
     # ---- Region restore ----
 
@@ -312,8 +374,13 @@ class ShadowboxApp(QMainWindow):
         from shadowbox.gui.processing import ProcessingThread
 
         gs = self.settings_panel.get_gui_settings()
+        target_image = (
+            self._converted_image
+            if self._converted_image is not None
+            else self._image
+        )
         self._thread = ProcessingThread(
-            image=self._image,
+            image=target_image,
             settings=gs,
             bbox=self._bbox,
         )
@@ -534,6 +601,13 @@ class ShadowboxApp(QMainWindow):
 
 def main() -> None:
     """アプリケーションのエントリーポイント。"""
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
     if not PYQT_AVAILABLE:
         print("Error: PyQt6 is not installed.")
         print("Install: uv pip install PyQt6")

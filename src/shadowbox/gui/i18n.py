@@ -91,7 +91,23 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "This image has no saved region.\nClear the current selection?",
         "ja": "この画像には保存済みの領域がありません。\n現在の選択を解除しますか？",
     },
+    # ---- AI Convert ----
+    "btn.ai_convert": {"en": "AI Convert", "ja": "AI変換"},
+    "status.converting": {"en": "AI converting image...", "ja": "AI画像変換中..."},
+    "status.converted": {"en": "AI conversion complete", "ja": "AI変換完了"},
+    "dialog.no_api_key": {
+        "en": "GEMINI_API_KEY is not set.\n"
+        "Add GEMINI_API_KEY=your-key to .env file or set as environment variable.",
+        "ja": "GEMINI_API_KEY が未設定です。\n"
+        ".env ファイルに GEMINI_API_KEY=your-key を追加するか、\n"
+        "環境変数として設定してください。",
+    },
+    "dialog.convert_failed": {
+        "en": "AI conversion failed:\n{error}",
+        "ja": "AI変換に失敗しました:\n{error}",
+    },
     # ---- Tabs (image preview) ----
+    "tab.converted": {"en": "Converted", "ja": "変換後"},
     "tab.original": {"en": "Original", "ja": "元画像"},
     "tab.depth": {"en": "Depth", "ja": "深度"},
     "tab.layers": {"en": "Layers", "ja": "レイヤー"},

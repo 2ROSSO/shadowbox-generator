@@ -22,12 +22,18 @@ class ActionButtons(QWidget):
     view_3d_clicked = pyqtSignal()
     export_clicked = pyqtSignal()
     export_8dir_clicked = pyqtSignal()
+    ai_convert_clicked = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        self.ai_convert_btn = QPushButton(tr("btn.ai_convert"))
+        self.ai_convert_btn.setEnabled(False)
+        self.ai_convert_btn.clicked.connect(self.ai_convert_clicked)
+        layout.addWidget(self.ai_convert_btn)
 
         self.generate_btn = QPushButton(tr("btn.generate"))
         self.generate_btn.setObjectName("primary")
@@ -52,6 +58,7 @@ class ActionButtons(QWidget):
 
     def set_has_image(self, has_image: bool) -> None:
         """画像読み込み状態に応じてボタンを有効化。"""
+        self.ai_convert_btn.setEnabled(has_image)
         self.generate_btn.setEnabled(has_image)
 
     def set_has_result(self, has_result: bool) -> None:
@@ -62,6 +69,7 @@ class ActionButtons(QWidget):
 
     def retranslate(self) -> None:
         """言語変更時にUI文字列を更新。"""
+        self.ai_convert_btn.setText(tr("btn.ai_convert"))
         self.generate_btn.setText(tr("btn.generate"))
         self.view_3d_btn.setText(tr("btn.view_3d"))
         self.export_btn.setText(tr("btn.export_3d"))

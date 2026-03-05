@@ -62,8 +62,10 @@ class ImagePreview(QWidget):
         # Tab buttons (simple toggle row)
         tab_row = QHBoxLayout()
         self._tab_buttons: dict[str, QLabel] = {}
-        self._tab_keys = ["original", "depth", "layers"]
-        self._tab_tr_keys = ["tab.original", "tab.depth", "tab.layers"]
+        self._tab_keys = ["original", "converted", "depth", "layers"]
+        self._tab_tr_keys = [
+            "tab.original", "tab.converted", "tab.depth", "tab.layers",
+        ]
         for key, tr_key in zip(self._tab_keys, self._tab_tr_keys, strict=True):
             btn = QLabel(tr(tr_key))
             btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -127,14 +129,14 @@ class ImagePreview(QWidget):
         self._current_tab = key
         self._update_tab_styles()
         self._update_legend()
-        if key == "original":
+        if key in ("original", "converted"):
             self._region_selector.show()
             self._region_selector.raise_()
         else:
             self._region_selector.hide()
-        # Re-sync region selector when switching to original tab
-        if key == "original" and "original" in self._pixmaps:
-            self._display_pixmap("original", self._pixmaps["original"])
+        # Re-sync region selector when switching to original/converted tab
+        if key in ("original", "converted") and key in self._pixmaps:
+            self._display_pixmap(key, self._pixmaps[key])
 
     def _update_tab_styles(self) -> None:
         for k, btn in self._tab_buttons.items():
@@ -177,6 +179,18 @@ class ImagePreview(QWidget):
         self._pixmaps["original"] = pixmap
         self._display_pixmap("original", pixmap)
         self._switch_tab("original")
+
+    def set_converted_image(self, image: Image.Image) -> None:
+        """変換後画像をセット。"""
+        pixmap = self._pil_to_pixmap(image)
+        self._pixmaps["converted"] = pixmap
+        self._display_pixmap("converted", pixmap)
+
+    def clear_converted(self) -> None:
+        """変換後画像をクリア。"""
+        self._pixmaps.pop("converted", None)
+        self._labels["converted"].setPixmap(QPixmap())
+        self._labels["converted"].setText(tr("tab.no_image"))
 
     def set_depth_map(self, depth_map: np.ndarray) -> None:
         """深度マップをセット（正規化→カラーマップ表示）。"""
@@ -285,7 +299,7 @@ class ImagePreview(QWidget):
         lbl.setPixmap(scaled)
 
         # Update region selector geometry
-        if key == "original" and self._current_image_size[0] > 0:
+        if key in ("original", "converted") and self._current_image_size[0] > 0:
             self._update_region_rect(lbl, scaled)
 
     def _update_region_rect(self, lbl: QLabel, scaled_pixmap: QPixmap) -> None:
